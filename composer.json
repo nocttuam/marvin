@@ -1,0 +1,24 @@
+{
+  "name": "noctuam/marvin",
+  "description": "The virtual host manager",
+  "keywords": ["cli", "virtual-host", "manager", "command"],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Kleyson Costa",
+      "email": "kleyson.costta@gmail.com"
+    }
+  ],
+  "require": {
+    "symfony/console": "^3.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^5.1",
+    "mockery/mockery": "^0.9.4"
+  },
+  "autoload": {
+    "psr-4": {
+      "Marvin\\": "src/Marvin"
+    }
+  }
+}
