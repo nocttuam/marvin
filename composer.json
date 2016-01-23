@@ -20,5 +20,8 @@
     "psr-4": {
       "Marvin\\": "src/Marvin"
     }
+  },
+  "scripts": {
+    "test:coverage": "phpunit --configuration phpunit.xml --coverage-html tests/.coverage"
   }
 }
