@@ -1,15 +1,24 @@
 <?php
 namespace Marvin\Hosts;
 
+use Illuminate\Filesystem\Filesystem;
 
 class Apache
 {
+
+    private $filesystem;
 
     protected $configurations = [
         'ip'           => '192.168.42.42',
         'server_admin' => 'webmaster@marvin',
         'log_path'     => '${APACHE_LOG_DIR}',
     ];
+
+    public function __construct(Filesystem $filesystem, $apacheConfigPath)
+    {
+        $this->filesystem                           = $filesystem;
+        $this->configurations['apache_config_path'] = '/' . trim($apacheConfigPath, '\/');
+    }
 
     public function ip($ip)
     {
@@ -79,19 +88,33 @@ class Apache
         return false;
     }
 
-    public function configurations()
+    public function create()
     {
-        $ip          = $this->makeIpAndPort();
-        $admin       = $this->get('server_admin');
-        $serverName  = $this->get('server_name');
-        $serverAlias = $this->makeServerAlias();
-        $serverPath  = $this->get('server_path');
-        $logPath     = $this->get('log_path');
+        file_put_contents($this->filePath(),$this->content($this->contentParameters()));
 
-        return $this->hostConfiguration($ip, $admin, $serverName, $serverAlias, $serverPath, $logPath);
     }
 
-    protected function makeIpAndPort()
+    protected function filePath()
+    {
+        $path = $this->configurations['apache_config_path'] .
+                DIRECTORY_SEPARATOR .
+                $this->configurations['server_name'] . '.conf';
+        return $path;
+    }
+
+    protected function contentParameters()
+    {
+        $configurations['ip']          = $this->resolveIP();
+        $configurations['admin']       = $this->get('server_admin');
+        $configurations['serverName']  = $this->get('server_name');
+        $configurations['serverAlias'] = $this->makeServerAlias();
+        $configurations['serverPath']  = $this->get('server_path');
+        $configurations['logPath']     = $this->get('log_path');
+
+        return $configurations;
+    }
+
+    protected function resolveIP()
     {
         if (isset($this->configurations['port']) && ! empty($this->configurations['port'])) {
             return $this->get('ip') . ':' . $this->get('port');
@@ -110,19 +133,19 @@ class Apache
         return $alias;
     }
 
-    protected function hostConfiguration($ip, $admin, $serverName, $serverAlias, $serverPath, $logPath)
+    protected function content(array $configurations)
     {
-        $config = <<<EOD
-<VirtualHost $ip>
-    ServerAdmin $admin
-    ServerName $serverName
-    ServerAlias www.$serverAlias
-    DocumentRoot $serverPath
+        $content = <<<EOD
+<VirtualHost {$configurations['ip']}>
+    ServerAdmin {$configurations['admin']}
+    ServerName {$configurations['serverName']}
+    ServerAlias www.{$configurations['serverAlias']}
+    DocumentRoot {$configurations['serverPath']}
 
-    ErrorLog $logPath/marvin.localhost-error.log
-    CustomLog $logPath/marvin.localhost-access.log combined
+    ErrorLog {$configurations['logPath']}/marvin.localhost-error.log
+    CustomLog {$configurations['logPath']}/marvin.localhost-access.log combined
 
-    <Directory $serverPath>
+    <Directory {$configurations['serverPath']}>
         Options Indexes FollowSymLinks MultiViews
         AllowOverride All
         Require all granted
@@ -130,6 +153,6 @@ class Apache
 </VirtualHost>
 EOD;
 
-        return $config;
+        return $content;
     }
 }
