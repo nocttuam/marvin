@@ -57,7 +57,7 @@ class Apache
         return $this;
     }
 
-    public function serverPath($path)
+    public function documentRoot($path)
     {
         $this->configurations['server_path'] = $path;
 
@@ -90,7 +90,7 @@ class Apache
 
     public function create()
     {
-        file_put_contents($this->filePath(),$this->content($this->contentParameters()));
+        file_put_contents($this->filePath(), $this->content($this->contentParameters()));
 
     }
 
@@ -99,17 +99,18 @@ class Apache
         $path = $this->configurations['apache_config_path'] .
                 DIRECTORY_SEPARATOR .
                 $this->configurations['server_name'] . '.conf';
+
         return $path;
     }
 
     protected function contentParameters()
     {
-        $configurations['ip']          = $this->resolveIP();
-        $configurations['admin']       = $this->get('server_admin');
-        $configurations['serverName']  = $this->get('server_name');
-        $configurations['serverAlias'] = $this->makeServerAlias();
-        $configurations['serverPath']  = $this->get('server_path');
-        $configurations['logPath']     = $this->get('log_path');
+        $configurations['ip']           = $this->resolveIP();
+        $configurations['admin']        = $this->get('server_admin');
+        $configurations['serverName']   = $this->get('server_name');
+        $configurations['serverAlias']  = $this->makeServerAlias();
+        $configurations['documentRoot'] = $this->get('server_path');
+        $configurations['logPath']      = $this->get('log_path');
 
         return $configurations;
     }
@@ -140,12 +141,12 @@ class Apache
     ServerAdmin {$configurations['admin']}
     ServerName {$configurations['serverName']}
     ServerAlias www.{$configurations['serverAlias']}
-    DocumentRoot {$configurations['serverPath']}
+    DocumentRoot {$configurations['documentRoot']}
 
     ErrorLog {$configurations['logPath']}/marvin.localhost-error.log
     CustomLog {$configurations['logPath']}/marvin.localhost-access.log combined
 
-    <Directory {$configurations['serverPath']}>
+    <Directory {$configurations['documentRoot']}>
         Options Indexes FollowSymLinks MultiViews
         AllowOverride All
         Require all granted

@@ -67,7 +67,7 @@ class ApacheTest extends PHPUnit_Framework_TestCase
 
         $apache->serverName($serverName)
                ->serverAlias($serverAlias)
-               ->serverPath($serverPath);
+               ->documentRoot($serverPath);
 
         $this->assertEquals($serverName, $apache->get('server_name'));
         $this->assertEquals($serverAlias, $apache->get('server_alias'));
@@ -117,7 +117,7 @@ CONF;
 
         $apache = new Apache($filesystem, $this->apacheConfigPath);
 
-        $apache->serverPath('/home/trillian/site/public')
+        $apache->documentRoot('/home/trillian/site/public')
                ->serverName('marvin.localhost');
         $apache->create();
         $this->assertFileExists(__DIR__ . '/apache2/marvin.localhost.conf');
@@ -133,8 +133,8 @@ CONF;
     ServerAlias www.marvin.dev marvin.local.dev marvin.develop.host
     DocumentRoot /home/marvin/site/public
 
-    ErrorLog /home/logs/marvin.localhost-error.log
-    CustomLog /home/logs/marvin.localhost-access.log combined
+    ErrorLog /home/marvin/logs/marvin.localhost-error.log
+    CustomLog /home/marvin/logs/marvin.localhost-access.log combined
 
     <Directory /home/marvin/site/public>
         Options Indexes FollowSymLinks MultiViews
@@ -153,8 +153,8 @@ CONF;
                ->serverAdmin('marvin@emailhost')
                ->serverName('marvin.dev')
                ->serverAlias(['marvin.local.dev', 'marvin.develop.host'])
-               ->serverPath('/home/marvin/site/public')
-               ->logPath('/home/logs/');
+               ->documentRoot('/home/marvin/site/public')
+               ->logPath('/home/marvin/logs/');
 
         $apache->create();
         $this->assertFileExists(__DIR__ . '/apache2/marvin.dev.conf');
@@ -167,7 +167,7 @@ CONF;
 
         $apache = new Apache($filesystem, $this->apacheConfigPath);
 
-        $apache->serverPath('/home/trillian/site/public')
+        $apache->documentRoot('/home/trillian/site/public')
                ->serverName('existent.host');
 
         $apache->create();
