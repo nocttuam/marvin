@@ -10,7 +10,7 @@ class ApacheTest extends PHPUnit_Framework_TestCase
 
     protected function setUp()
     {
-        $this->filesystem       = Mockery::mock('Illuminate\Filesystem\Filesystem');
+        $this->filesystem       = Mockery::mock('Marvin\Filesystem\Filesystem');
         $this->apacheConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'apache2';
         $this->createFolderStructure();
     }
@@ -49,7 +49,7 @@ class ApacheTest extends PHPUnit_Framework_TestCase
     {
         $apache = new Apache($this->filesystem, $this->apacheConfigPath);
         $this->assertAttributeInstanceOf(
-            'Illuminate\Filesystem\Filesystem',
+            'Marvin\Filesystem\Filesystem',
             'filesystem',
             $apache
         );
@@ -113,7 +113,7 @@ class ApacheTest extends PHPUnit_Framework_TestCase
 </VirtualHost>
 CONF;
 
-        $filesystem = new Illuminate\Filesystem\Filesystem;
+        $filesystem = new Marvin\Filesystem\Filesystem;
 
         $apache = new Apache($filesystem, $this->apacheConfigPath);
 
@@ -144,7 +144,7 @@ CONF;
 </VirtualHost>
 CONF;
 
-        $filesystem = new Illuminate\Filesystem\Filesystem;
+        $filesystem = new Marvin\Filesystem\Filesystem;
 
         $apache = new Apache($filesystem, $this->apacheConfigPath);
 
@@ -163,7 +163,7 @@ CONF;
 
     public function testShouldThrowExceptionIfConfigurationsHaveOtherFileOfSameName()
     {
-        $filesystem = new Illuminate\Filesystem\Filesystem;
+        $filesystem = new Marvin\Filesystem\Filesystem;
 
         $apache = new Apache($filesystem, $this->apacheConfigPath);
 

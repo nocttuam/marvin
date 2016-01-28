@@ -30,7 +30,6 @@ class Apache
         return $this;
     }
 
-
     protected function ipIsValid($ip)
     {
         return filter_var($ip, FILTER_VALIDATE_IP) !== false;
@@ -90,8 +89,7 @@ class Apache
 
     public function create()
     {
-        file_put_contents($this->filePath(), $this->content($this->contentParameters()));
-
+        $this->filesystem->put($this->filePath(), $this->content($this->contentParameters()));
     }
 
     protected function filePath()
