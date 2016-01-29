@@ -1,65 +1,70 @@
 <?php
+namespace Marvin\Hosts;
 
 use Marvin\Hosts\Apache;
+use Marvin\Filesystem\Filesystem;
 
-class ApacheTest extends PHPUnit_Framework_TestCase
+function exec($comand)
+{
+    return $comand;
+}
+
+class ApacheTest extends \PHPUnit_Framework_TestCase
 {
     protected $filesystem;
 
-    protected $apacheConfigPath;
+    protected $apacheConfigDir;
 
     protected function setUp()
     {
-        $this->filesystem       = Mockery::mock('Marvin\Filesystem\Filesystem');
-        $this->apacheConfigPath = __DIR__ . DIRECTORY_SEPARATOR . 'apache2';
+        $this->filesystem      = \Mockery::mock('Marvin\Filesystem\Filesystem');
+        $this->apacheConfigDir = realpath('.') . DIRECTORY_SEPARATOR . 'tests' . DIRECTORY_SEPARATOR . 'test-apache2';
         $this->createFolderStructure();
-    }
-
-    protected function tearDown()
-    {
-        $this->destructFolderStructure();
     }
 
     protected function createFolderStructure()
     {
-        if ( ! file_exists($this->apacheConfigPath)) {
-            mkdir($this->apacheConfigPath, 0777, true);
+        if ( ! file_exists($this->apacheConfigDir)) {
+            mkdir($this->apacheConfigDir . DIRECTORY_SEPARATOR . 'site-available', 0777, true);
             file_put_contents(
-                $this->apacheConfigPath . DIRECTORY_SEPARATOR . 'existent.host.conf',
+                $this->apacheConfigDir . DIRECTORY_SEPARATOR . 'existent.host.conf',
                 'Old Configs'
             );
         }
     }
 
-    protected function destructFolderStructure()
+    protected function tearDown()
     {
-        if (file_exists($this->apacheConfigPath)) {
-            foreach (array_diff(scandir($this->apacheConfigPath), ['.', '..']) as $item) {
-                $file = $this->apacheConfigPath . DIRECTORY_SEPARATOR . $item;
-                if (is_dir($file)) {
-                    rmdir($file);
-                }
-                unlink($file);
+        $this->destructFolderStructure($this->apacheConfigDir);
+    }
+
+    protected function destructFolderStructure($directory)
+    {
+        if (file_exists($directory)) {
+            $files = glob($directory . '/*');
+            foreach ($files as $file) {
+                is_dir($file) ? $this->destructFolderStructure($file) : unlink($file);
             }
-            rmdir($this->apacheConfigPath);
+            rmdir($directory);
+            return;
         }
     }
 
-    public function testIfFilesystemIsCorretlyIstance()
+    public function testIfFilesystemIsCorrectlyInstance()
     {
-        $apache = new Apache($this->filesystem, $this->apacheConfigPath);
+        $apache = new Apache($this->filesystem, $this->apacheConfigDir);
         $this->assertAttributeInstanceOf(
             'Marvin\Filesystem\Filesystem',
             'filesystem',
             $apache
         );
 
-        $this->assertAttributeContains($this->apacheConfigPath, 'configurations', $apache);
+        $this->assertAttributeContains($this->apacheConfigDir, 'configurations', $apache);
     }
 
     public function testShouldGetRequiredAttributes()
     {
-        $apache = new Apache($this->filesystem, $this->apacheConfigPath);
+        $apache = new Apache($this->filesystem, $this->apacheConfigDir);
 
         $serverName  = 'marvin.dev';
         $serverAlias = ['marvin.local', 'marvin.host'];
@@ -76,7 +81,7 @@ class ApacheTest extends PHPUnit_Framework_TestCase
 
     public function testSetValidIp()
     {
-        $apache = new Apache($this->filesystem, $this->apacheConfigPath);
+        $apache = new Apache($this->filesystem, $this->apacheConfigDir);
 
         $apache->ip('192.168.42.42');
         $this->assertEquals('192.168.42.42', $apache->get('ip'));
@@ -88,7 +93,7 @@ class ApacheTest extends PHPUnit_Framework_TestCase
      */
     public function testIfIpIsValid()
     {
-        $apache = new Apache($this->filesystem, $this->apacheConfigPath);
+        $apache = new Apache($this->filesystem, $this->apacheConfigDir);
 
         $apache->ip('42.42.42');
     }
@@ -113,15 +118,15 @@ class ApacheTest extends PHPUnit_Framework_TestCase
 </VirtualHost>
 CONF;
 
-        $filesystem = new Marvin\Filesystem\Filesystem;
+        $filesystem = new Filesystem;
 
-        $apache = new Apache($filesystem, $this->apacheConfigPath);
+        $apache = new Apache($filesystem, $this->apacheConfigDir);
 
         $apache->documentRoot('/home/trillian/site/public')
                ->serverName('marvin.localhost');
-        $apache->create();
-        $this->assertFileExists(__DIR__ . '/apache2/marvin.localhost.conf');
-        $this->assertEquals($expects, file_get_contents(__DIR__ . '/apache2/marvin.localhost.conf'));
+        $apache->createConfigFile();
+        $this->assertFileExists(realpath('.') . '/tests' . '/test-apache2/site-available/marvin.localhost.conf');
+        $this->assertEquals($expects, file_get_contents(realpath('.') . '/tests' . '/test-apache2/site-available/marvin.localhost.conf'));
     }
 
     public function testCreateConfigurationFileToApacheUsingFullConfigurations()
@@ -144,9 +149,9 @@ CONF;
 </VirtualHost>
 CONF;
 
-        $filesystem = new Marvin\Filesystem\Filesystem;
+        $filesystem = new Filesystem;
 
-        $apache = new Apache($filesystem, $this->apacheConfigPath);
+        $apache = new Apache($filesystem, $this->apacheConfigDir);
 
         $apache->ip('192.168.4.2')
                ->port('8080')
@@ -156,21 +161,30 @@ CONF;
                ->documentRoot('/home/marvin/site/public')
                ->logPath('/home/marvin/logs/');
 
-        $apache->create();
-        $this->assertFileExists(__DIR__ . '/apache2/marvin.dev.conf');
-        $this->assertEquals($expects, file_get_contents(__DIR__ . '/apache2/marvin.dev.conf'));
+        $apache->createConfigFile();
+        $this->assertFileExists(realpath('.') . '/tests' . '/test-apache2/site-available/marvin.dev.conf');
+        $this->assertEquals($expects, file_get_contents(realpath('.') . '/tests' . '/test-apache2/site-available/marvin.dev.conf'));
     }
 
     public function testShouldThrowExceptionIfConfigurationsHaveOtherFileOfSameName()
     {
-        $filesystem = new Marvin\Filesystem\Filesystem;
+        $filesystem = new Filesystem;
 
-        $apache = new Apache($filesystem, $this->apacheConfigPath);
+        $apache = new Apache($filesystem, $this->apacheConfigDir);
 
         $apache->documentRoot('/home/trillian/site/public')
                ->serverName('existent.host');
 
-        $apache->create();
+        $apache->createConfigFile();
 
+    }
+
+    public function testShouldEnableSiteAndRestartServer()
+    {
+        $apache = new Apache($this->filesystem, $this->apacheConfigDir);
+        $apache->serverName('marvin.dev');
+
+        $this->assertEquals('sudo a2ensite '.$apache->get('server_name'), $apache->enableApacheSite());
+        $this->assertEquals('sudo service apache restart', $apache->restartServer());
     }
 }

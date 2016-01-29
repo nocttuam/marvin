@@ -14,10 +14,10 @@ class Apache
         'log_path'     => '${APACHE_LOG_DIR}',
     ];
 
-    public function __construct(Filesystem $filesystem, $apacheConfigPath)
+    public function __construct(Filesystem $filesystem, $apacheConfigDir)
     {
-        $this->filesystem                           = $filesystem;
-        $this->configurations['apache_config_path'] = '/' . trim($apacheConfigPath, '\/');
+        $this->filesystem                          = $filesystem;
+        $this->configurations['apache_config_dir'] = '/' . trim($apacheConfigDir, '\/');
     }
 
     public function ip($ip)
@@ -87,16 +87,31 @@ class Apache
         return false;
     }
 
-    public function create()
+    public function createConfigFile()
     {
         $this->filesystem->put($this->filePath(), $this->content($this->contentParameters()));
     }
 
+    public function enableApacheSite()
+    {
+        $a2ensite = exec('sudo a2ensite '.$this->configurations['server_name']);
+        return $a2ensite;
+    }
+
+    public function restartServer()
+    {
+        $apacheRestart = exec('sudo service apache restart');
+        return $apacheRestart;
+    }
+
     protected function filePath()
     {
-        $path = $this->configurations['apache_config_path'] .
+        $path = $this->configurations['apache_config_dir'] .
                 DIRECTORY_SEPARATOR .
-                $this->configurations['server_name'] . '.conf';
+                'site-available' .
+                DIRECTORY_SEPARATOR .
+                $this->configurations['server_name'] .
+                '.conf';
 
         return $path;
     }

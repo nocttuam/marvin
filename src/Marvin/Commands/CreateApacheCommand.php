@@ -74,18 +74,25 @@ class CreateApacheCommand extends Command
         $this->apacheManager->serverName($name)
                             ->documentRoot($documentRoot);
 
-        $this->setIp($ip)
+        $this->setIp($ip, $output)
              ->setPort($port)
              ->setLogPath($logPath)
              ->setServerAdmin($serverAdmin);
 
-        $this->apacheManager->create();
+        $this->apacheManager->createConfigFile();
+        $output->writeln($this->apacheManager->enableApacheSite());
+        $output->writeln($this->apacheManager->restartServer());
     }
 
-    protected function setIp($ip)
+    protected function setIp($ip, $output)
     {
         if ($ip) {
-            $this->apacheManager->ip($ip);
+            try {
+                $this->apacheManager->ip($ip);
+            } catch (\Exception $e) {
+                $output->writeln($e->getMessage());
+                exit();
+            }
         }
 
         return $this;
