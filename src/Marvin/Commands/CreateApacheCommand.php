@@ -29,7 +29,7 @@ class CreateApacheCommand extends Command
              ->addArgument(
                  'name',
                  InputArgument::REQUIRED,
-                 'What is server name'
+                 'Host name used to access'
              )
              ->addArgument(
                  'document-root',
@@ -39,26 +39,32 @@ class CreateApacheCommand extends Command
              ->addOption(
                  'ip',
                  'i',
-                 InputOption::VALUE_OPTIONAL,
+                 InputOption::VALUE_REQUIRED,
                  'IP to access virtual host'
              )
              ->addOption(
                  'port',
                  'p',
-                 InputOption::VALUE_OPTIONAL,
+                 InputOption::VALUE_REQUIRED,
                  'Port to access virtual host'
              )
              ->addOption(
                  'log-path',
                  'l',
-                 InputOption::VALUE_OPTIONAL,
+                 InputOption::VALUE_REQUIRED,
                  'Path to server logs'
              )
              ->addOption(
                  'server-admin',
                  'a',
-                 InputOption::VALUE_OPTIONAL,
+                 InputOption::VALUE_REQUIRED,
                  'Admin e-mail address'
+             )
+             ->addOption(
+                 'server-alias',
+                 'A',
+                 InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
+                 'Alternate name for the host'
              );
     }
 
@@ -70,6 +76,7 @@ class CreateApacheCommand extends Command
         $port         = $input->getOption('port');
         $logPath      = $input->getOption('log-path');
         $serverAdmin  = $input->getOption('server-admin');
+        $serverAlias  = $input->getOption('server-alias');
 
         $this->apacheManager->serverName($name)
                             ->documentRoot($documentRoot);
@@ -77,6 +84,7 @@ class CreateApacheCommand extends Command
         $this->setIp($ip, $output)
              ->setPort($port)
              ->setLogPath($logPath)
+             ->setServerAlias($serverAlias)
              ->setServerAdmin($serverAdmin);
 
         $this->apacheManager->createConfigFile();
@@ -103,6 +111,16 @@ class CreateApacheCommand extends Command
         if ($port) {
             $this->apacheManager->port($port);
         }
+
+        return $this;
+    }
+
+    protected function setServerAlias($serverAlias)
+    {
+        if ( ! is_array($serverAlias)) {
+            $serverAlias = [$serverAlias];
+        }
+        $this->apacheManager->serverAlias($serverAlias);
 
         return $this;
     }

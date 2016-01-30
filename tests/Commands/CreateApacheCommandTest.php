@@ -31,36 +31,6 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
         $this->application->add(new CreateApacheCommand($apacheManager));
     }
 
-    public function testCommandSetOptionsRightly()
-    {
-        $command       = $this->application->find('create:apache');
-        $commandTester = new CommandTester($command);
-
-        $serverName   = 'marvin.localhost';
-        $documentRoot = '/home/marvin/site/public';
-        $serverAdmin  = 'marvin@mailhost';
-        $ip           = '192.168.4.2';
-        $port         = '8080';
-        $logPath      = '/home/marvin/log';
-
-        $commandTester->execute([
-            'command'        => $command->getName(),
-            'name'           => $serverName,
-            'document-root'  => $documentRoot,
-            '--server-admin' => $serverAdmin,
-            '--ip'           => $ip,
-            '--port'         => $port,
-            '--log-path'     => $logPath,
-        ]);
-
-        $this->assertEquals($serverName, $commandTester->getInput()->getArgument('name'));
-        $this->assertEquals($documentRoot, $commandTester->getInput()->getArgument('document-root'));
-        $this->assertEquals($serverAdmin, $commandTester->getInput()->getOption('server-admin'));
-        $this->assertEquals($ip, $commandTester->getInput()->getOption('ip'));
-        $this->assertEquals($port, $commandTester->getInput()->getOption('port'));
-        $this->assertEquals($logPath, $commandTester->getInput()->getOption('log-path'));
-    }
-
     /**
      * @runInSeparateProcess
      */
@@ -100,6 +70,39 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
 
     }
 
+    public function testCommandSetOptionsRightly()
+    {
+        $command       = $this->application->find('create:apache');
+        $commandTester = new CommandTester($command);
+
+        $serverName   = 'marvin.localhost';
+        $documentRoot = '/home/marvin/site/public';
+        $serverAdmin  = 'marvin@mailhost';
+        $ip           = '192.168.4.2';
+        $port         = '8080';
+        $logPath      = '/home/marvin/log';
+        $serverAlias  = 'marvin.app';
+
+        $commandTester->execute([
+            'command'        => $command->getName(),
+            'name'           => $serverName,
+            'document-root'  => $documentRoot,
+            '--server-admin' => $serverAdmin,
+            '--ip'           => $ip,
+            '--port'         => $port,
+            '--log-path'     => $logPath,
+            '--server-alias' => $serverAlias,
+        ]);
+
+        $this->assertEquals($serverName, $commandTester->getInput()->getArgument('name'));
+        $this->assertEquals($documentRoot, $commandTester->getInput()->getArgument('document-root'));
+        $this->assertEquals($serverAdmin, $commandTester->getInput()->getOption('server-admin'));
+        $this->assertEquals($ip, $commandTester->getInput()->getOption('ip'));
+        $this->assertEquals($port, $commandTester->getInput()->getOption('port'));
+        $this->assertEquals($logPath, $commandTester->getInput()->getOption('log-path'));
+        $this->assertContains($serverAlias, $commandTester->getInput()->getOption('server-alias'));
+    }
+
     public function testCommandSetOptionsRightlyUsingShortcuts()
     {
         $command       = $this->application->find('create:apache');
@@ -111,6 +114,7 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
         $ip           = '192.168.4.2';
         $port         = '8080';
         $logPath      = '/home/marvin/log';
+        $serverAlias  = 'marvin.app';
 
         $commandTester->execute([
             'command'       => $command->getName(),
@@ -120,12 +124,14 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
             '-i'            => $ip,
             '-p'            => $port,
             '-l'            => $logPath,
+            '-A'            => $serverAlias,
         ]);
 
         $this->assertEquals($serverAdmin, $commandTester->getInput()->getOption('server-admin'));
         $this->assertEquals($ip, $commandTester->getInput()->getOption('ip'));
         $this->assertEquals($port, $commandTester->getInput()->getOption('port'));
         $this->assertEquals($logPath, $commandTester->getInput()->getOption('log-path'));
+        $this->assertContains($serverAlias, $commandTester->getInput()->getOption('server-alias'));
     }
 
     public function testShouldCreateApacheVirtualHost()
@@ -139,6 +145,7 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
                                   'serverName',
                                   'documentRoot',
                                   'logPath',
+                                  'serverAlias',
                                   'createConfigFile',
                                   'enableApacheSite',
                                   'restartServer',
@@ -152,6 +159,7 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
         $ip           = '192.168.4.2';
         $port         = '8080';
         $logPath      = '/home/marvin/log';
+        $serverAlias  = 'marvin.app';
 
         /**
          * Methods to call in /Marvin/Hosts/Apache
@@ -165,6 +173,12 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
                       ->method('documentRoot')
                       ->with($this->equalTo($documentRoot))
                       ->will($this->returnSelf());
+
+        $apacheManager->expects($this->once())
+                      ->method('serverAlias')
+                      ->with($this->equalTo(array($serverAlias)))
+                      ->will($this->returnSelf());
+
 
         $apacheManager->expects($this->once())
                       ->method('ip')
@@ -211,6 +225,7 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
             'name'           => $serverName,
             'document-root'  => $documentRoot,
             '--server-admin' => $serverAdmin,
+            '--server-alias' => $serverAlias,
             '--ip'           => $ip,
             '--port'         => $port,
             '--log-path'     => $logPath,
