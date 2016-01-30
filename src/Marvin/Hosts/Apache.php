@@ -1,7 +1,7 @@
 <?php
 namespace Marvin\Hosts;
 
-use Illuminate\Filesystem\Filesystem;
+use Marvin\Filesystem\Filesystem;
 
 class Apache
 {
@@ -46,7 +46,14 @@ class Apache
     {
         $this->configurations['server_name'] = $name;
 
+        $this->buildId($name);
+
         return $this;
+    }
+
+    protected function buildId($string)
+    {
+        $this->configurations['id'] = md5($string);
     }
 
     public function serverAlias(array $alias)
@@ -69,7 +76,6 @@ class Apache
 
         return $this;
     }
-
     public function logPath($path)
     {
         $path                             = trim($path, '\/');

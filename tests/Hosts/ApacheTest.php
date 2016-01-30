@@ -79,11 +79,23 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($serverPath, $apache->get('server_path'));
     }
 
+    public function testBuildIdToNewHost()
+    {
+        $apache = new Apache($this->filesystem, $this->apacheConfigDir);
+
+        $name = 'marvin.app';
+
+        $apache->serverName($name);
+
+        $this->assertEquals(md5($name), $apache->get('id'));
+    }
+
     public function testSetValidIp()
     {
         $apache = new Apache($this->filesystem, $this->apacheConfigDir);
 
         $apache->ip('192.168.42.42');
+
         $this->assertEquals('192.168.42.42', $apache->get('ip'));
     }
 
@@ -176,7 +188,6 @@ CONF;
                ->serverName('existent.host');
 
         $apache->createConfigFile();
-
     }
 
     public function testShouldEnableSiteAndRestartServer()
