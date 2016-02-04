@@ -1,7 +1,12 @@
 {
   "name": "noctuam/marvin",
   "description": "The virtual host manager",
-  "keywords": ["cli", "virtual-host", "manager", "command"],
+  "keywords": [
+    "cli",
+    "virtual-host",
+    "manager",
+    "command"
+  ],
   "license": "MIT",
   "authors": [
     {
@@ -24,5 +29,8 @@
   },
   "scripts": {
     "test:coverage": "phpunit --configuration phpunit.xml --coverage-html tests/.coverage"
-  }
+  },
+  "bin": [
+    "marvin"
+  ]
 }
