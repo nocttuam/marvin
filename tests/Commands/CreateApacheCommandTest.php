@@ -17,15 +17,11 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
         $apacheManager = $this->getMockBuilder('Marvin\Hosts\Apache')
                               ->disableOriginalConstructor()
                               ->setMethods([
-                                  'createConfigFile',
-                                  'enableApacheSite',
-                                  'restartServer',
+                                  'create',
                               ])
                               ->getMock();
 
-        $apacheManager->method('createConfigFile');
-        $apacheManager->method('enableApacheSite');
-        $apacheManager->method('restartServer');
+        $apacheManager->method('create');
 
         $this->application = new Application();
         $this->application->add(new CreateApacheCommand($apacheManager));
@@ -36,18 +32,20 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
      */
     public function testPrintMessageIfIpIsInvalid()
     {
+        $ip = '111';
+
         $apacheManager = $this->getMockBuilder('Marvin\Hosts\Apache')
                               ->disableOriginalConstructor()
                               ->setMethods([
-                                  'ip',
+                                  'validateParameters',
                               ])
                               ->getMock();
 
-        $apacheManager->expects($this->once())
-                      ->method('ip')
-                      ->will($this->returnCallback(function ($ip) {
-                          if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
-                              throw new \InvalidArgumentException('Use a valid IP');
+        $apacheManager->expects($this->exactly(3))
+                      ->method('validateParameters')
+                      ->will($this->returnCallback(function ($key, $ip) {
+                          if ('ip' === $key && filter_var($ip, FILTER_VALIDATE_IP) === false) {
+                              throw new \InvalidArgumentException('This is a not valid IP');
                           }
                       }));
 
@@ -57,7 +55,6 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
         $command       = $application->find('create:apache');
         $commandTester = new CommandTester($command);
 
-        $ip = '111';
 
         $commandTester->execute([
             'command'       => $command->getName(),
@@ -66,7 +63,7 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
             '--ip'          => $ip,
         ]);
 
-        $this->assertRegExp('/Use a valid IP/', $commandTester->getDisplay());
+        $this->assertRegExp('/This is a not valid IP/', $commandTester->getDisplay());
 
     }
 
@@ -139,16 +136,8 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
         $apacheManager = $this->getMockBuilder('Marvin\Hosts\Apache')
                               ->disableOriginalConstructor()
                               ->setMethods([
-                                  'ip',
-                                  'port',
-                                  'serverAdmin',
-                                  'serverName',
-                                  'documentRoot',
-                                  'logPath',
-                                  'serverAlias',
-                                  'createConfigFile',
-                                  'enableApacheSite',
-                                  'restartServer',
+                                 'set',
+                                  'create'
                               ])
                               ->getMock();
 
@@ -164,52 +153,12 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
         /**
          * Methods to call in /Marvin/Hosts/Apache
          */
-        $apacheManager->expects($this->once())
-                      ->method('serverName')
-                      ->with($this->equalTo($serverName))
+        $apacheManager->expects($this->any())
+                      ->method('set')
                       ->will($this->returnSelf());
 
         $apacheManager->expects($this->once())
-                      ->method('documentRoot')
-                      ->with($this->equalTo($documentRoot))
-                      ->will($this->returnSelf());
-
-        $apacheManager->expects($this->once())
-                      ->method('serverAlias')
-                      ->with($this->equalTo(array($serverAlias)))
-                      ->will($this->returnSelf());
-
-
-        $apacheManager->expects($this->once())
-                      ->method('ip')
-                      ->with($this->equalTo($ip))
-                      ->will($this->returnSelf());
-
-        $apacheManager->expects($this->once())
-                      ->method('port')
-                      ->with($this->equalTo($port))
-                      ->will($this->returnSelf());
-
-        $apacheManager->expects($this->once())
-                      ->method('serverAdmin')
-                      ->with($this->equalTo($serverAdmin))
-                      ->will($this->returnSelf());
-
-        $apacheManager->expects($this->once())
-                      ->method('logPath')
-                      ->with($this->equalTo($logPath))
-                      ->will($this->returnSelf());
-
-        $apacheManager->expects($this->once())
-                      ->method('createConfigFile');
-
-        $apacheManager->expects($this->once())
-                      ->method('enableApacheSite')
-                      ->will($this->returnValue('Site Enable Finished'));
-
-        $apacheManager->expects($this->once())
-                      ->method('restartServer')
-                      ->will($this->returnValue('Apache Restarted'));
+                      ->method('create');
 
         /**
          * Execute commands
@@ -231,8 +180,7 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
             '--log-path'     => $logPath,
         ]);
 
-        $this->assertRegExp('/Site Enable Finished/', $commandTester->getDisplay());
-        $this->assertRegExp('/Apache Restarted/', $commandTester->getDisplay());
+        $this->assertRegExp('/Apache Virtual Host Created Success!/', $commandTester->getDisplay());
     }
 
 }

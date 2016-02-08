@@ -78,8 +78,8 @@ class CreateApacheCommand extends Command
         $serverAdmin  = $input->getOption('server-admin');
         $serverAlias  = $input->getOption('server-alias');
 
-        $this->apacheManager->serverName($name)
-                            ->documentRoot($documentRoot);
+        $this->apacheManager->set('server-name', $name)
+                            ->set('document-root', $documentRoot);
 
         $this->setIp($ip, $output)
              ->setPort($port)
@@ -87,17 +87,16 @@ class CreateApacheCommand extends Command
              ->setServerAlias($serverAlias)
              ->setServerAdmin($serverAdmin);
 
-        $this->apacheManager->createConfigFile();
-        $output->writeln($this->apacheManager->enableApacheSite());
-        $output->writeln($this->apacheManager->restartServer());
+        $this->apacheManager->create($name);
+        $output->writeln('Apache Virtual Host Created Success!');
     }
 
     protected function setIp($ip, $output)
     {
         if ($ip) {
             try {
-                $this->apacheManager->ip($ip);
-            } catch (\Exception $e) {
+                $this->apacheManager->set( 'ip', $ip);
+            } catch (\InvalidArgumentException $e) {
                 $output->writeln($e->getMessage());
                 exit();
             }
@@ -109,7 +108,7 @@ class CreateApacheCommand extends Command
     protected function setPort($port)
     {
         if ($port) {
-            $this->apacheManager->port($port);
+            $this->apacheManager->set('port', $port);
         }
 
         return $this;
@@ -120,7 +119,7 @@ class CreateApacheCommand extends Command
         if ( ! is_array($serverAlias)) {
             $serverAlias = [$serverAlias];
         }
-        $this->apacheManager->serverAlias($serverAlias);
+        $this->apacheManager->set('server-alias', $serverAlias);
 
         return $this;
     }
@@ -128,7 +127,7 @@ class CreateApacheCommand extends Command
     protected function setLogPath($logPath)
     {
         if ($logPath) {
-            $this->apacheManager->logPath($logPath);
+            $this->apacheManager->set('log-path', $logPath);
         }
 
         return $this;
@@ -137,7 +136,7 @@ class CreateApacheCommand extends Command
     protected function setServerAdmin($serverAdmin)
     {
         if ($serverAdmin) {
-            $this->apacheManager->serverAdmin($serverAdmin);
+            $this->apacheManager->set('server-admin', $serverAdmin);
         }
 
         return $this;

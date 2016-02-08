@@ -1,178 +1,107 @@
 <?php
 namespace Marvin\Hosts;
 
+
 use Marvin\Filesystem\Filesystem;
 
 class Apache
 {
+    protected $filesystem;
 
-    private $filesystem;
+    protected $configurations;
 
-    protected $configurations = [
-        'ip'           => '192.168.42.42',
-        'server_admin' => 'webmaster@marvin',
-        'log_path'     => '${APACHE_LOG_DIR}',
-    ];
-
-    public function __construct(Filesystem $filesystem, $apacheConfigDir)
+    public function __construct(Filesystem $filesystem)
     {
-        $this->filesystem                          = $filesystem;
-        $this->configurations['apache_config_dir'] = '/' . trim($apacheConfigDir, '\/');
+        $this->filesystem     = $filesystem;
+        $this->configurations = [
+            'ip'           => '192.168.42.42',
+            'server-admin' => 'webmaster@marvin',
+            'log-path'     => '${APACHE_LOG_DIR}',
+        ];
     }
 
-    public function ip($ip)
+    public function set($key, $value)
     {
-        if ( ! $this->ipIsValid($ip)) {
-            throw new \InvalidArgumentException('Use a valid IP');
+        $this->validateParameters($key, $value);
+        $this->configurations[$key] = $value;
+
+        return $this;
+    }
+
+    protected function validateParameters($key, $value)
+    {
+        if ('ip' === $key) {
+            $this->validateIP($value);
         }
-        $this->configurations['ip'] = $ip;
-
-        return $this;
     }
 
-    protected function ipIsValid($ip)
+    protected function validateIP($ip)
     {
-        return filter_var($ip, FILTER_VALIDATE_IP) !== false;
-    }
-
-    public function port($port)
-    {
-        $this->configurations['port'] = $port;
-
-        return $this;
-    }
-
-    public function serverName($name)
-    {
-        $this->configurations['server_name'] = $name;
-
-        $this->buildId($name);
-
-        return $this;
-    }
-
-    protected function buildId($string)
-    {
-        $this->configurations['id'] = md5($string);
-    }
-
-    public function serverAlias(array $alias)
-    {
-        $this->configurations['server_alias'] = $alias;
-
-        return $this;
-    }
-
-    public function documentRoot($path)
-    {
-        $this->configurations['server_path'] = $path;
-
-        return $this;
-    }
-
-    public function serverAdmin($admin)
-    {
-        $this->configurations['server_admin'] = $admin;
-
-        return $this;
-    }
-    public function logPath($path)
-    {
-        $path                             = trim($path, '\/');
-        $this->configurations['log_path'] = '/' . $path;
-
-        return $this;
-    }
-
-    public function get($attribute)
-    {
-        if (isset($this->configurations[$attribute])) {
-            return $this->configurations[$attribute];
+        if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
+            throw new \InvalidArgumentException('This is not a valid IP: ' . $ip);
         }
-
-        return false;
     }
 
-    public function createConfigFile()
+    public function get($key = null)
     {
-        $this->filesystem->put($this->filePath(), $this->content($this->contentParameters()));
-    }
-
-    public function enableApacheSite()
-    {
-        $a2ensite = exec('sudo a2ensite '.$this->configurations['server_name']);
-        return $a2ensite;
-    }
-
-    public function restartServer()
-    {
-        $apacheRestart = exec('sudo service apache restart');
-        return $apacheRestart;
-    }
-
-    protected function filePath()
-    {
-        $path = $this->configurations['apache_config_dir'] .
-                DIRECTORY_SEPARATOR .
-                'site-available' .
-                DIRECTORY_SEPARATOR .
-                $this->configurations['server_name'] .
-                '.conf';
-
-        return $path;
-    }
-
-    protected function contentParameters()
-    {
-        $configurations['ip']           = $this->resolveIP();
-        $configurations['admin']        = $this->get('server_admin');
-        $configurations['serverName']   = $this->get('server_name');
-        $configurations['serverAlias']  = $this->makeServerAlias();
-        $configurations['documentRoot'] = $this->get('server_path');
-        $configurations['logPath']      = $this->get('log_path');
-
-        return $configurations;
-    }
-
-    protected function resolveIP()
-    {
-        if (isset($this->configurations['port']) && ! empty($this->configurations['port'])) {
-            return $this->get('ip') . ':' . $this->get('port');
+        if (is_null($key)) {
+            return $this->configurations;
         }
-
-        return $this->get('ip');
-    }
-
-    protected function makeServerAlias()
-    {
-        $alias = $this->get('server_name');
-        if ($this->get('server_alias')) {
-            $alias = $alias . ' ' . implode(' ', $this->get('server_alias'));
+        if (key_exists($key, $this->configurations)) {
+            return $this->configurations[$key];
         }
-
-        return $alias;
     }
 
-    protected function content(array $configurations)
+    public function create($fileName)
     {
-        $content = <<<EOD
-<VirtualHost {$configurations['ip']}>
-    ServerAdmin {$configurations['admin']}
-    ServerName {$configurations['serverName']}
-    ServerAlias www.{$configurations['serverAlias']}
-    DocumentRoot {$configurations['documentRoot']}
+        $DS   = DIRECTORY_SEPARATOR;
+        $file = realpath('.') . $DS . 'app' . $DS . 'cache' . $DS . $fileName . '.conf';
 
-    ErrorLog {$configurations['logPath']}/marvin.localhost-error.log
-    CustomLog {$configurations['logPath']}/marvin.localhost-access.log combined
+        return $this->filesystem->put($file, $this->buildContent());
+    }
 
-    <Directory {$configurations['documentRoot']}>
+    protected function buildContent()
+    {
+        $ip      = $this->resolveIp();
+        $alias   = $this->buildAliases();
+        $content = <<<CONF
+<VirtualHost {$ip}>
+    ServerAdmin {$this->configurations['server-admin']}
+    ServerName {$this->configurations['server-name']}
+    ServerAlias {$alias}
+    DocumentRoot {$this->configurations['document-root']}
+
+    ErrorLog {$this->configurations['log-path']}/{$this->configurations['server-name']}-error.log
+    CustomLog {$this->configurations['log-path']}/{$this->configurations['server-name']}-access.log combined
+
+    <Directory {$this->configurations['document-root']}>
         Options Indexes FollowSymLinks MultiViews
         AllowOverride All
         Require all granted
     </Directory>
 </VirtualHost>
-EOD;
+CONF;
 
         return $content;
+    }
+
+    protected function buildAliases()
+    {
+        $alias = 'www.' . $this->configurations['server-name'];
+        if (isset($this->configurations['server-alias']) && ! empty($this->configurations['server-alias'])) {
+            $alias .= ' ' . implode(' ', $this->configurations['server-alias']);
+        }
+
+        return $alias;
+    }
+
+    protected function resolveIp()
+    {
+        $ip = $this->configurations['ip'];
+        if (isset($this->configurations['port']) && ! empty($this->configurations['port'])) {
+            $ip .= ':' . $this->configurations['port'];
+        }
+
+        return $ip;
     }
 }
