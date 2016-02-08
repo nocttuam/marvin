@@ -37,12 +37,12 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
         $apacheManager = $this->getMockBuilder('Marvin\Hosts\Apache')
                               ->disableOriginalConstructor()
                               ->setMethods([
-                                  'validateParameters',
+                                  'parseParameters',
                               ])
                               ->getMock();
 
         $apacheManager->expects($this->exactly(3))
-                      ->method('validateParameters')
+                      ->method('parseParameters')
                       ->will($this->returnCallback(function ($key, $ip) {
                           if ('ip' === $key && filter_var($ip, FILTER_VALIDATE_IP) === false) {
                               throw new \InvalidArgumentException('This is a not valid IP');

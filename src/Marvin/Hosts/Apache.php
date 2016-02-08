@@ -22,16 +22,19 @@ class Apache
 
     public function set($key, $value)
     {
-        $this->validateParameters($key, $value);
+        $this->parseParameters($key, $value);
         $this->configurations[$key] = $value;
 
         return $this;
     }
 
-    protected function validateParameters($key, $value)
+    protected function parseParameters($key, $value)
     {
         if ('ip' === $key) {
             $this->validateIP($value);
+        }
+        if ('server-name' === $key) {
+            $this->id($value);
         }
     }
 
@@ -40,6 +43,11 @@ class Apache
         if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
             throw new \InvalidArgumentException('This is not a valid IP: ' . $ip);
         }
+    }
+
+    protected function id($name)
+    {
+        $this->set('id', md5($name));
     }
 
     public function get($key = null)
@@ -55,7 +63,7 @@ class Apache
     public function create($fileName)
     {
         $DS   = DIRECTORY_SEPARATOR;
-        $file = realpath('.') . $DS . 'app' . $DS . 'cache' . $DS . $fileName . '.conf';
+        $file = realpath('.') . $DS . 'app' . $DS . 'tmp' . $DS . $fileName . '.conf';
 
         return $this->filesystem->put($file, $this->buildContent());
     }

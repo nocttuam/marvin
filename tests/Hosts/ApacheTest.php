@@ -25,7 +25,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
     {
         $apache = new Apache($this->filesystem);
 
-        $apache->set('ip', '192.168.42.42');
+        $apache->set('ip', '192.168.4.2');
         $apache->set('port', '8080');
         $apache->set('server-admin', 'marvin@emailhost');
         $apache->set('server-name', 'marvin.dev');
@@ -34,7 +34,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
         $apache->set('log-path', '/home/marvin/logs/');
 
         $expected = [
-            'ip'            => '192.168.42.42',
+            'ip'            => '192.168.4.2',
             'port'          => '8080',
             'server-admin'  => 'marvin@emailhost',
             'server-name'   => 'marvin.dev',
@@ -43,7 +43,9 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
             'log-path'      => '/home/marvin/logs/',
         ];
 
-        $this->assertEquals($expected, $apache->get());
+        $this->assertCount(8, $apache->get()); // include in count id parameter
+        $this->assertArraySubset($expected, $apache->get());
+        $this->assertArrayHasKey('server-name', $apache->get());
         $this->assertEquals($expected['ip'], $apache->get('ip'));
         $this->assertEquals($expected['port'], $apache->get('port'));
         $this->assertEquals($expected['server-admin'], $apache->get('server-admin'));
@@ -62,6 +64,18 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
         $apache = new Apache($this->filesystem);
 
         $apache->set('ip', '42.42.42');
+    }
+
+    public function testBuildIdToHost()
+    {
+        $serverName = md5('mavin.host');
+        $expected   = md5($serverName);
+        $apache     = new Apache($this->filesystem);
+
+        $apache->set('server-name', $serverName);
+
+        $this->assertEquals($serverName, $apache->get('server-name'));
+        $this->assertEquals($expected, $apache->get('id'));
     }
 
     public function testReturnCOnfigurationsForTheHost()
@@ -85,7 +99,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
 CONF;
         $fileName = 'marvin.host';
         $DS       = DIRECTORY_SEPARATOR;
-        $file     = realpath('.') . $DS . 'app' . $DS . 'cache' . $DS . $fileName . '.conf';
+        $file     = realpath('.') . $DS . 'app' . $DS . 'tmp' . $DS . $fileName . '.conf';
 
         $filesystem = $this->getMockBuilder('\Marvin\Filesystem\Filesystem')
                            ->setMethods(['put'])
@@ -130,7 +144,7 @@ CONF;
 CONF;
         $fileName = 'marvin.host';
         $DS       = DIRECTORY_SEPARATOR;
-        $file     = realpath('.') . $DS . 'app' . $DS . 'cache' . $DS . $fileName . '.conf';
+        $file     = realpath('.') . $DS . 'app' . $DS . 'tmp' . $DS . $fileName . '.conf';
 
         $filesystem = $this->getMockBuilder('\Marvin\Filesystem\Filesystem')
                            ->setMethods(['put'])

@@ -7,117 +7,155 @@ use Marvin\Filesystem\Filesystem;
 class HostsFileManagerTest extends \PHPUnit_Framework_TestCase
 {
 
-    protected $filesystem;
-
-    protected $mockEtcDir;
-
-    protected function setUp()
-    {
-        $this->filesystem = new Filesystem();
-        $this->mockEtcDir = realpath('.') . DIRECTORY_SEPARATOR . 'tests' . DIRECTORY_SEPARATOR . 'etc';
-        $this->createFolderStructure();
-    }
-
-    protected function createFolderStructure()
-    {
-        if ( ! file_exists($this->mockEtcDir)) {
-            mkdir($this->mockEtcDir, 0777, true);
-            file_put_contents(
-                $this->mockEtcDir . DIRECTORY_SEPARATOR . 'hosts',
-                $this->hostFileInitContent()
-            );
-        }
-    }
-
-    protected function tearDown()
-    {
-        $this->destructFolderStructure($this->mockEtcDir);
-    }
-
-    protected function destructFolderStructure($directory)
-    {
-        if (file_exists($directory)) {
-            $files = glob($directory . '/*');
-            foreach ($files as $file) {
-                is_dir($file) ? $this->destructFolderStructure($file) : unlink($file);
-            }
-            rmdir($directory);
-            return;
-        }
-    }
-
     public function testReceiveFilesystemInstance()
     {
-        $filesystem       = new Filesystem();
-        $hostsFileManager = new HostsFileManager($filesystem);
+        $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
+                           ->getMock();
+
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->setMethods(['get'])
+                                 ->getMock();
+
+        $configRepository->expects($this->once())
+                         ->method('get')
+                         ->with($this->equalTo('host-file-path'), $this->equalTo('/etc/host'))
+                         ->will($this->returnValue('/etc/host'));
+
+        $hostsFileManager = new HostsFileManager($filesystem, $configRepository);
 
         $this->assertAttributeInstanceOf(
             Filesystem::class,
             'filesystem',
             $hostsFileManager
         );
-    }
 
-    public function testGetPathForEtcHostsFile()
-    {
-        $path             = '/etc/hosts';
-        $newPath          = 'C:\Windows\System32\drivers\etc';
-        $hostsFileManager = new HostsFileManager($this->filesystem);
+        $this->assertAttributeInstanceOf(
+            'Marvin\Config\Repository',
+            'configRepository',
+            $hostsFileManager
+        );
 
-        $this->assertAttributeEquals($path, 'filePath', $hostsFileManager);
-
-        $hostsFileManager->setPath($newPath);
-
-        $this->assertAttributeEquals($newPath, 'filePath', $hostsFileManager);
+        $tempDir = realpath('.') . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'tmp';
+        $this->assertAttributeEquals('/etc/host', 'filePath', $hostsFileManager);
+        $this->assertAttributeEquals($tempDir, 'tempDir', $hostsFileManager);
     }
 
     public function testShouldReadEtcHostsFile()
     {
-        $file = new HostsFileManager($this->filesystem);
-
         $content = '192.168.42.42 marvin.app # ID: 923894213214152';
 
-        $path = $this->mockEtcDir . DIRECTORY_SEPARATOR . 'hosts';
 
-        $file->setPath($path);
+        $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
+                           ->setMethods(['get'])
+                           ->getMock();
 
-        $this->assertContains($content, $file->read());
+        $filesystem->expects($this->once())
+                   ->method('get')
+                   ->will($this->returnValue($content));
+
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->getMock();
+
+
+        $fileHost = new HostsFileManager($filesystem, $configRepository);
+
+        $this->assertContains($content, $fileHost->read());
     }
 
     public function testShouldReturnAlertIfHostsFileNotExist()
     {
-        $file = new HostsFileManager($this->filesystem);
+        $message = 'File does not exist';
 
-        $path = realpath('.') . '/file/no/exist';
 
-        $message = 'not exist';
+        $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
+                           ->setMethods(['get'])
+                           ->getMock();
 
-        $file->setPath($path);
+        $filesystem->expects($this->once())
+                   ->method('get')
+                   ->will($this->throwException(new \Illuminate\Contracts\Filesystem\FileNotFoundException($message)));
 
-        $this->assertRegExp('/' . $message . '/', $file->read());
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->getMock();
+
+
+        $fileHost = new HostsFileManager($filesystem, $configRepository);
+
+        $this->assertEquals($message, $fileHost->read());
     }
 
-    public function testWriteVirtualHostInformationInHostsFile()
+    public function testWriteConfigurationsOfTheHostsFile()
     {
-        $file = new HostsFileManager($this->filesystem);
-        $path = $this->mockEtcDir . DIRECTORY_SEPARATOR . 'hosts';
-        $file->setPath($path);
+        $DS = DIRECTORY_SEPARATOR;
+        $parameters = [
+            'id'             => '6c6b2c7c78c38576c7775e4ce82a9770',
+            'ip'             => '192.168.42.42',
+            'server-name'    => 'marvin.app',
+            'server-alias'   => 'www.marvin.app marvin.dev marvin.local',
+            'original-file'  => '/etc/host',
+            'temporary-file' => realpath('.') . $DS . 'app' . $DS . 'tmp'. $DS . 'hosts',
+        ];
 
-        $id          = '6c6b2c7c78c38576c7775e4ce82a9770';
-        $ip          = '192.168.42.42';
-        $serverName  = 'marvin.app';
-        $serverAlias = ['www.marvin.app', 'marvin.dev', 'marvin.local'];
+        $hostConfigs = '192.168.42.42 marvin.app www.marvin.app marvin.dev marvin.local # ID: 6c6b2c7c78c38576c7775e4ce82a9770 // Created by Marvin';
 
-        $file->includeHost($id, $ip, $serverName, $serverAlias);
+        // Marvin\Config\Repository Mock
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->setMethods(['get'])
+                                 ->getMock();
 
-        $hostConfigs = '192.168.42.42 marvin.app www.marvin.app marvin.dev marvin.local ' .
-                       '# ID: 6c6b2c7c78c38576c7775e4ce82a9770 // Created by Marvin';
+        $configRepository->expects($this->once())
+                         ->method('get')
+                         ->will($this->returnValue($parameters['original-file']));
 
-        $fileContent = file_get_contents($path);
+        // Marvin\Filesystem\Filesystem Mock
+        $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
+                           ->setMethods(['get', 'put'])
+                           ->getMock();
 
-//        $this->assertRegExp('/' . $hostConfigs . '/', $fileContent);
+        $filesystem->expects($this->once())
+                   ->method('get')
+                   ->with($this->equalTo($parameters['original-file']))
+                   ->will($this->returnValue($this->hostFileInitContent()));
 
-        $this->assertContains($hostConfigs, $fileContent);
+        $filesystem->expects($this->once())
+                   ->method('put')
+                   ->with(
+                       $this->equalTo($parameters['temporary-file']),
+                       $this->hostFileInitContent() . PHP_EOL . $hostConfigs
+                   )
+                   ->will($this->returnValue(true));
+
+        // Marvin\Hosts\Apache Mock
+        $apacheManager = $this->getMockBuilder('Marvin\Hosts\Apache')
+                              ->disableOriginalConstructor()
+                              ->setMethods(['get'])
+                              ->getMock();
+
+        $apacheManager->expects($this->exactly(4))
+                      ->method('get')
+                      ->will($this->returnCallback(function ($key) use ($parameters) {
+                          $result = '';
+                          switch ($key) {
+                              case 'id':
+                                  $result = $parameters['id'];
+                                  break;
+                              case 'ip':
+                                  $result = $parameters['ip'];
+                                  break;
+                              case 'server-name':
+                                  $result = $parameters['server-name'];
+                                  break;
+                              case 'server-alias':
+                                  $result = $parameters['server-alias'];
+                                  break;
+                          }
+
+                          return $result;
+                      }));
+
+
+        $hostsManager = new HostsFileManager($filesystem, $configRepository);
+        $hostsManager->includeHost($apacheManager);
 
     }
 
@@ -144,6 +182,7 @@ class HostsFileManagerTest extends \PHPUnit_Framework_TestCase
 ff02::1 ip6-allnodes
 ff02::2 ip6-allrouters
 EOD;
+
         return $content;
     }
 }
