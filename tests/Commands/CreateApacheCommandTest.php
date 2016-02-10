@@ -21,7 +21,8 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
                               ])
                               ->getMock();
 
-        $apacheManager->method('create');
+        $apacheManager->expects($this->any())
+                      ->method('create');
 
         $this->application = new Application();
         $this->application->add(new CreateApacheCommand($apacheManager));
@@ -37,17 +38,21 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
         $apacheManager = $this->getMockBuilder('Marvin\Hosts\Apache')
                               ->disableOriginalConstructor()
                               ->setMethods([
-                                  'parseParameters',
+                                  'set',
                               ])
                               ->getMock();
 
-        $apacheManager->expects($this->exactly(3))
-                      ->method('parseParameters')
-                      ->will($this->returnCallback(function ($key, $ip) {
-                          if ('ip' === $key && filter_var($ip, FILTER_VALIDATE_IP) === false) {
-                              throw new \InvalidArgumentException('This is a not valid IP');
-                          }
-                      }));
+        $apacheManager->expects($this->any())
+                      ->method('set')
+                      ->will($this->onConsecutiveCalls(
+                          $this->returnSelf(), // Return in line 81
+                          $this->returnSelf(), // Return in line 82
+                          $this->returnCallback(function ($key, $ip) {
+                              if ('ip' === $key && filter_var($ip, FILTER_VALIDATE_IP) === false) {
+                                  throw new \InvalidArgumentException('This is a not valid IP');
+                              }
+                          })
+                      ));
 
         $application = new Application();
         $application->add(new CreateApacheCommand($apacheManager));
@@ -136,7 +141,7 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
         $apacheManager = $this->getMockBuilder('Marvin\Hosts\Apache')
                               ->disableOriginalConstructor()
                               ->setMethods([
-                                 'set',
+                                  'set',
                                   'create'
                               ])
                               ->getMock();

@@ -15,6 +15,12 @@ class CreateApacheCommand extends Command
      */
     protected $apacheManager;
 
+    /**
+     * CreateApacheCommand constructor.
+     *
+     * @param Apache $apacheManager
+     * @param null   $name
+     */
     public function __construct(Apache $apacheManager, $name = null)
     {
         parent::__construct($name);
@@ -22,6 +28,9 @@ class CreateApacheCommand extends Command
         $this->apacheManager = $apacheManager;
     }
 
+    /**
+     * Configures the current command.
+     */
     protected function configure()
     {
         $this->setName('create:apache')
@@ -68,6 +77,14 @@ class CreateApacheCommand extends Command
              );
     }
 
+    /**
+     * Executes the current command.
+     *
+     * @param InputInterface  $input  An InputInterface instance
+     * @param OutputInterface $output An OutputInterface instance
+     *
+     * @return null|int null or 0 if everything went fine, or an error code
+     */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $name         = $input->getArgument('name');
@@ -91,11 +108,19 @@ class CreateApacheCommand extends Command
         $output->writeln('Apache Virtual Host Created Success!');
     }
 
+    /**
+     * Set IP or print message if is invalid
+     *
+     * @param string $ip
+     * @param $output
+     *
+     * @return $this
+     */
     protected function setIp($ip, $output)
     {
         if ($ip) {
             try {
-                $this->apacheManager->set( 'ip', $ip);
+                $this->apacheManager->set('ip', $ip);
             } catch (\InvalidArgumentException $e) {
                 $output->writeln($e->getMessage());
                 exit();
@@ -105,6 +130,13 @@ class CreateApacheCommand extends Command
         return $this;
     }
 
+    /**
+     * Set server port
+     *
+     * @param $port
+     *
+     * @return $this
+     */
     protected function setPort($port)
     {
         if ($port) {
@@ -114,6 +146,13 @@ class CreateApacheCommand extends Command
         return $this;
     }
 
+    /**
+     * Set server alias
+     *
+     * @param $serverAlias
+     *
+     * @return $this
+     */
     protected function setServerAlias($serverAlias)
     {
         if ( ! is_array($serverAlias)) {
@@ -124,6 +163,13 @@ class CreateApacheCommand extends Command
         return $this;
     }
 
+    /**
+     * Set log path
+     *
+     * @param $logPath
+     *
+     * @return $this
+     */
     protected function setLogPath($logPath)
     {
         if ($logPath) {
@@ -133,6 +179,13 @@ class CreateApacheCommand extends Command
         return $this;
     }
 
+    /**
+     * Set server admin e-mail
+     *
+     * @param $serverAdmin
+     *
+     * @return $this
+     */
     protected function setServerAdmin($serverAdmin)
     {
         if ($serverAdmin) {
