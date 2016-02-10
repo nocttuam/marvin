@@ -38,14 +38,14 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
             'port'          => '8080',
             'server-admin'  => 'marvin@emailhost',
             'server-name'   => 'marvin.dev',
-            'server-alias'  => ['marvin.local.dev', 'marvin.develop.host'],
+            'server-alias'  => 'marvin.local.dev marvin.develop.host',
             'document-root' => '/home/marvin/site/public',
             'log-path'      => '/home/marvin/logs/',
         ];
 
-        $this->assertCount(8, $apache->get()); // include in count id parameter
-        $this->assertArraySubset($expected, $apache->get());
-        $this->assertArrayHasKey('server-name', $apache->get());
+        $this->assertCount(8, $apache->get(null)); // include in count id parameter
+        $this->assertArraySubset($expected, $apache->get(null));
+        $this->assertArrayHasKey('server-name', $apache->get(null));
         $this->assertEquals($expected['ip'], $apache->get('ip'));
         $this->assertEquals($expected['port'], $apache->get('port'));
         $this->assertEquals($expected['server-admin'], $apache->get('server-admin'));
@@ -78,7 +78,24 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($expected, $apache->get('id'));
     }
 
-    public function testReturnCOnfigurationsForTheHost()
+    public function testTransformAliasArrayInString()
+    {
+        $apache = new Apache($this->filesystem);
+
+        $alias = [
+            'marvin.dev',
+            'marvin.host',
+            'marvin.local'
+        ];
+
+        $expected = 'marvin.dev marvin.host marvin.local';
+
+        $apache->set('server-alias', $alias);
+
+        $this->assertEquals($expected, $apache->get('server-alias'));
+    }
+
+    public function testReturnConfigurationsForTheHost()
     {
         $content  = <<<CONF
 <VirtualHost 192.168.4.2:8080>

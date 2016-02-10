@@ -22,21 +22,32 @@ class RepositoryTest extends \PHPUnit_Framework_TestCase
     public function testReturnIfHasKeyInConfigs()
     {
         $configs          = [
-            'name'        => 'Marvin',
-            'myConfig'    => 'New Config',
-            'otherConfig' => 'More configurations'
+            'name'         => 'Marvin',
+            'my-config'    => 'New Config',
+            'other-config' => 'More configurations'
         ];
         $configRepository = new Repository($configs);
         $this->assertTrue($configRepository->has('name'));
-        $this->assertTrue($configRepository->has('myConfig'));
-        $this->assertTrue($configRepository->has('otherConfig'));
-        $this->assertNotTrue($configRepository->has('null'));
+        $this->assertTrue($configRepository->has('my-config'));
+        $this->assertTrue($configRepository->has('other-config'));
+    }
+
+    public function testIfArrayIsEmptyOrKeyIsNull()
+    {
+        $configRepository = new Repository([]);
+        $this->assertNotTrue($configRepository->has('name'));
     }
 
     public function testGetValueUsingKey()
     {
         $configRepository = new Repository($this->configs);
         $this->assertEquals('Marvin', $configRepository->get('name'));
+    }
+
+    public function testGetAllItemsUsingNullInParameter()
+    {
+        $configRepository = new Repository($this->configs);
+        $this->assertEquals($this->configs, $configRepository->get(null));
     }
 
     public function testReturnValueDefaultIfValueIsNull()

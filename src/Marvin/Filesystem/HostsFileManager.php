@@ -7,14 +7,37 @@ use Illuminate\Contracts\Filesystem\FileNotFoundException;
 
 class HostsFileManager
 {
+    /**
+     * Path for the hosts file.
+     * In Linux the default is /etc/host
+     *
+     * @var array|null
+     */
     protected $filePath;
 
+    /**
+     * @var Filesystem
+     */
     protected $filesystem;
 
+    /**
+     * @var ConfigRepository
+     */
     protected $configRepository;
 
+    /**
+     * Directory used to store temporary files
+     *
+     * @var string
+     */
     protected $tmpDir;
 
+    /**
+     * HostsFileManager constructor.
+     *
+     * @param Filesystem       $filesystem
+     * @param ConfigRepository $configRepository
+     */
     public function __construct(Filesystem $filesystem, ConfigRepository $configRepository)
     {
         $this->filesystem = $filesystem;
@@ -27,6 +50,12 @@ class HostsFileManager
 
     }
 
+    /**
+     * Read hosts file if it exist in $filePath.
+     * If file exist return your content, if not return exception message.
+     *
+     * @return string
+     */
     public function read()
     {
         try {
@@ -36,6 +65,13 @@ class HostsFileManager
         }
     }
 
+    /**
+     * Include new host configurations in hots file(/etc/hosts)
+     *
+     * @param Apache $apacheManager
+     *
+     * @throws FileNotFoundException
+     */
     public function includeHost(Apache $apacheManager)
     {
         $originalContent = $this->filesystem->get($this->filePath);
