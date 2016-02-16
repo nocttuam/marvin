@@ -1,7 +1,7 @@
 <?php
-namespace Marvin\Shell;
+namespace Marvin\Contracts;
 
-interface IExecute
+interface Execute
 {
     /**
      * Move configuration file to Apache configurations directory
