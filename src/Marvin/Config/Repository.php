@@ -1,7 +1,6 @@
 <?php
 namespace Marvin\Config;
 
-
 class Repository
 {
     /**
@@ -52,7 +51,7 @@ class Repository
      */
     public function get($key, $default = null)
     {
-        if (isset($this->items[$key])) {
+        if ($this->has($key) && isset($this->items[$key])) {
             return $this->items[$key];
         }
         if ( ! $this->has($key) && ! is_null($default)) {

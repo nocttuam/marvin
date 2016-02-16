@@ -6,7 +6,7 @@ use Marvin\Config\Repository;
 class RepositoryTest extends \PHPUnit_Framework_TestCase
 {
 
-    protected $configs = [
+    protected $defaults = [
         'name'  => 'Marvin',
         'hosts' => [
             'apache'
@@ -15,8 +15,8 @@ class RepositoryTest extends \PHPUnit_Framework_TestCase
 
     public function testSetItemsList()
     {
-        $configRepository = new Repository($this->configs);
-        $this->assertAttributeEquals($this->configs, 'items', $configRepository);
+        $configRepository = new Repository($this->defaults);
+        $this->assertAttributeEquals($this->defaults, 'items', $configRepository);
     }
 
     public function testReturnIfHasKeyInConfigs()
@@ -32,7 +32,7 @@ class RepositoryTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue($configRepository->has('other-config'));
     }
 
-    public function testIfArrayIsEmptyOrKeyIsNull()
+    public function testReturnFalseIfArrayIsEmptyOrKeyIsNull()
     {
         $configRepository = new Repository([]);
         $this->assertNotTrue($configRepository->has('name'));
@@ -40,38 +40,50 @@ class RepositoryTest extends \PHPUnit_Framework_TestCase
 
     public function testGetValueUsingKey()
     {
-        $configRepository = new Repository($this->configs);
+        $configRepository = new Repository($this->defaults);
         $this->assertEquals('Marvin', $configRepository->get('name'));
     }
 
-    public function testGetAllItemsUsingNullInParameter()
+    public function testGetAllItemsIfParameterIsInvalid()
     {
-        $configRepository = new Repository($this->configs);
-        $this->assertEquals($this->configs, $configRepository->get(null));
+        $configRepository = new Repository($this->defaults);
+        $this->assertEquals($this->defaults, $configRepository->get(null));
     }
 
-    public function testReturnValueDefaultIfValueIsNull()
+    public function testReturnValueDefaultIfKeyNotExist()
     {
-        $configRepository = new Repository($this->configs);
+        $configRepository = new Repository($this->defaults);
         $this->assertEquals('Marvin', $configRepository->get('package', 'Marvin'));
     }
 
-    public function testSetKeyAndValueInConfigList()
+    public function testShouldChangeDefaultValues()
     {
-        $configRepository = new Repository($this->configs);
+        $defaults = [
+            'host' => 'Apache',
+            'name' => 'Trillian',
+        ];
 
-        $configRepository->set('host', 'apache');
-        $configRepository->set('name', 'Trillian');
+        $new              = [
+            'host' => 'Ngnix',
+            'name' => 'Zooei'
+        ];
+        $configRepository = new Repository($defaults);
 
-        $this->assertEquals('apache', $configRepository->get('host'));
-        $this->assertEquals('Trillian', $configRepository->get('name'));
+        $configRepository->set('host', $new['host']);
+        $configRepository->set('name', $new['name']);
+
+        $this->assertNotEquals($defaults['host'], $configRepository->get('host'));
+        $this->assertEquals($new['host'], $configRepository->get('host'));
+        $this->assertNotEquals($defaults['name'], $configRepository->get('name'));
+        $this->assertEquals($new['name'], $configRepository->get('name'));
+
     }
 
     public function testReturnCompleteConfigurationList()
     {
-        $configRepository = new Repository($this->configs);
+        $configRepository = new Repository($this->defaults);
 
-        $this->assertEquals($this->configs, $configRepository->all());
+        $this->assertEquals($this->defaults, $configRepository->all());
     }
 
 }
