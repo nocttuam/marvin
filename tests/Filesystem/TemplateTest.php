@@ -1,7 +1,6 @@
 <?php
 namespace Marvin\Filesystem;
 
-
 class TemplateTest extends \PHPUnit_Framework_TestCase
 {
 
@@ -9,25 +8,29 @@ class TemplateTest extends \PHPUnit_Framework_TestCase
 
     protected $filesystem;
 
-    protected function setUp()
+    public function testSetInitialParametersCorrectly()
     {
-        $this->host = $this->getMockBuilder('Marvin\Contracts\Host')
-                           ->setMethods([])
-                           ->getMock();
+        $file = '/path/to/template.stub';
 
-        $this->filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
-                                 ->getMock();
-    }
-
-
-    public function testSetDependenciesCorrectly()
-    {
         $host = $this->getMockBuilder('Marvin\Contracts\Host')
                      ->setMethods([])
                      ->getMock();
 
+        $host->expects($this->once())
+             ->method('get')
+             ->will($this->returnValue($file));
+
         $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
+                           ->setMethods(['exists', 'get'])
                            ->getMock();
+
+        $filesystem->expects($this->once())
+                   ->method('exists')
+                   ->will($this->returnValue(true));
+
+        $filesystem->expects($this->once())
+                   ->method('get')
+                   ->will($this->returnValue('Content'));
 
         $template = new Template($host, $filesystem);
 
@@ -42,6 +45,12 @@ class TemplateTest extends \PHPUnit_Framework_TestCase
             'filesystem',
             $template
         );
+
+        $this->assertAttributeEquals(
+            $file,
+            'file',
+            $template
+        );
     }
 
     public function testShouldSetFilePathAndContentIfFileIsValidTemplate()
@@ -50,20 +59,27 @@ class TemplateTest extends \PHPUnit_Framework_TestCase
 
         $content = 'This is a content';
 
+        $host = $this->getMockBuilder('Marvin\Contracts\Host')
+                     ->setMethods([])
+                     ->getMock();
+
+        $host->expects($this->once())
+             ->method('get')
+             ->will($this->returnValue($file));
+
         $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
                            ->setMethods(['exists', 'get'])
                            ->getMock();
 
-        $filesystem->expects($this->once())
+        $filesystem->expects($this->any())
                    ->method('exists')
                    ->will($this->returnValue(true));
 
-        $filesystem->expects($this->once())
-            ->method('get')
-            ->with($this->equalTo($file))
-            ->will($this->returnValue($content));
+        $filesystem->expects($this->any())
+                   ->method('get')
+                   ->will($this->returnValue($content));
 
-        $template = new Template($this->host, $filesystem);
+        $template = new Template($host, $filesystem);
 
         $template->file($file);
 
@@ -79,6 +95,14 @@ class TemplateTest extends \PHPUnit_Framework_TestCase
     {
         $file = 'path/to/nonexistent/file';
 
+        $host = $this->getMockBuilder('Marvin\Contracts\Host')
+                     ->setMethods([])
+                     ->getMock();
+
+        $host->expects($this->once())
+             ->method('get')
+             ->will($this->returnValue($file));
+
         $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
                            ->setMethods(['exists'])
                            ->getMock();
@@ -87,15 +111,13 @@ class TemplateTest extends \PHPUnit_Framework_TestCase
                    ->method('exists')
                    ->will($this->returnValue(false));
 
-        $template = new Template($this->host, $filesystem);
+        $template = new Template($host, $filesystem);
 
         $template->file($file);
     }
 
     public function testGetFileContent()
     {
-        $file = 'path/to/nonexistent/file';
-
         $content = <<<CONF
 <VirtualHost {{ip}}>
     ServerAdmin {{server-admin}}
@@ -114,29 +136,37 @@ class TemplateTest extends \PHPUnit_Framework_TestCase
 </VirtualHost>
 CONF;
 
+        $file = 'path/to/nonexistent/file';
+
+        $host = $this->getMockBuilder('Marvin\Contracts\Host')
+                     ->disableOriginalConstructor()
+                     ->setMethods([])
+                     ->getMock();
+
+        $host->expects($this->any())
+             ->method('get')
+             ->will($this->returnValue($file));
 
         $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
                            ->setMethods(['exists', 'get'])
                            ->getMock();
 
-        $filesystem->expects($this->once())
+        $filesystem->expects($this->any())
                    ->method('exists')
                    ->will($this->returnValue(true));
 
-        $filesystem->expects($this->once())
+        $filesystem->expects($this->any())
                    ->method('get')
                    ->with($this->equalTo($file))
                    ->will($this->returnValue($content));
 
-        $template = new Template($this->host, $filesystem);
+        $template = new Template($host, $filesystem);
 
         $this->assertEquals($content, $template->content($file));
     }
 
     public function testReplaceTagsInTemplateAndReturnConfigurations()
     {
-        $file = 'path/to/template/file.stub';
-
         $content = <<<CONF
 <VirtualHost {{ip}}>
     ServerAdmin {{server-admin}}
@@ -180,11 +210,12 @@ CONF;
             'server-alias'  => 'www.marvin.dev marvin.local.dev marvin.develop.host',
             'document-root' => '/home/marvin/site/public',
             'log-path'      => '/home/marvin/logs',
+            'template-path' => 'path/to/template/file.stub',
         ];
 
         $host = $this->getMockBuilder('Marvin\Contracts\Host')
                      ->disableOriginalConstructor()
-                     ->setMethods(['get', 'set', 'create'])
+                     ->setMethods([])
                      ->getMock();
 
         $host->expects($this->any())
@@ -204,15 +235,14 @@ CONF;
         $filesystem->expects($this->once())
                    ->method('get')
                    ->will($this->returnValue($content))
-                   ->with($this->equalTo($file));
+                   ->with($this->equalTo($tags['template-path']));
 
         $filesystem->expects($this->once())
                    ->method('exists')
                    ->will($this->returnValue(true));
 
         $template = new Template($host, $filesystem);
-        $template->file($file);
 
-        $this->assertEquals($newContent, $template->render($tags));
+        $this->assertEquals($newContent, $template->compile($tags));
     }
 }
