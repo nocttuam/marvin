@@ -1,24 +1,25 @@
 <?php
 namespace Marvin\Shell\Apache;
 
-use Marvin\Shell\IExecute;
+use Marvin\Contracts\Host;
+use Marvin\Contracts\Execute as ExecuteInterface;
 use Marvin\Config\Repository as ConfigRepository;
 
-class Execute implements IExecute
+class Execute implements ExecuteInterface
 {
     /**
      * @var ConfigRepository
      */
-    protected $configRepository;
+    protected $host;
 
     /**
-     * Execute constructor.
+     * Set the Virtual Host Manager
      *
-     * @param ConfigRepository $configRepository
+     * @param Host $host
      */
-    public function __construct(ConfigRepository $configRepository)
+    public function setHost(Host $host)
     {
-        $this->configRepository = $configRepository;
+        $this->host = $host;
     }
 
     /**
@@ -30,11 +31,11 @@ class Execute implements IExecute
      */
     public function moveConfig($file)
     {
-        $apachePath = $this->configRepository->get('apache-path');
-        $temp     = $this->configRepository->get('temp-directory');
+        $apachePath = $this->host->get('apache-path');
+        $temp       = $this->host->get('temp-directory');
 
-        $origin = $temp . DIRECTORY_SEPARATOR . $file;
-        $destiny    = $apachePath . DIRECTORY_SEPARATOR . 'sites-available';
+        $origin  = $temp . DIRECTORY_SEPARATOR . $file;
+        $destiny = $apachePath . DIRECTORY_SEPARATOR . 'sites-available';
 
         return shell_exec('sudo mv -v ' . $origin . ' ' . $destiny);
     }
