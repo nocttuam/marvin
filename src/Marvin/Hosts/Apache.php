@@ -1,35 +1,46 @@
 <?php
 namespace Marvin\Hosts;
 
+use Marvin\Contracts\Host;
+use Marvin\Contracts\Execute;
 use Marvin\Filesystem\Filesystem;
+use Marvin\Filesystem\Template;
+use Marvin\Config\Repository as ConfigRepository;
 
-class Apache
+class Apache implements Host
 {
+    protected $configRepository;
+
     /**
+     * Shell Manager.
+     * To run commands necessaries to configuration.
+     *
+     * @var Execute
+     */
+    protected $execute;
+
+    /**
+     * Filesystem Manager
+     *
      * @var Filesystem
      */
     protected $filesystem;
 
-    /**
-     * Configurations list
-     *
-     * @var array
-     */
-    protected $configurations;
+    protected $template;
+
 
     /**
      * Apache constructor.
      *
-     * @param Filesystem $filesystem
+     * @param ConfigRepository $configRepository
+     * @param Filesystem       $filesystem
+     * @param Template         $template
      */
-    public function __construct(Filesystem $filesystem)
+    public function __construct(ConfigRepository $configRepository, Filesystem $filesystem, Template $template)
     {
-        $this->filesystem     = $filesystem;
-        $this->configurations = [
-            'ip'           => '192.168.42.42',
-            'server-admin' => 'webmaster@marvin',
-            'log-path'     => '${APACHE_LOG_DIR}',
-        ];
+        $this->configRepository = $configRepository;
+        $this->filesystem       = $filesystem;
+        $this->template         = $template;
     }
 
     /**
@@ -43,7 +54,7 @@ class Apache
     public function set($key, $value)
     {
         $value = $this->parseParameters($key, $value);
-        $this->configurations[$key] = $value;
+        $this->configRepository->set($key, $value);
 
         return $this;
     }
@@ -68,7 +79,10 @@ class Apache
                 break;
             case 'server-alias':
                 return implode(' ', $value);
+            case 'file-name':
+                return $this->resolveFileName($value);
         }
+
         return $value;
     }
 
@@ -76,6 +90,7 @@ class Apache
      * If IP is invalid throw exception
      *
      * @param string $ip
+     *
      * @throws \InvalidArgumentException
      */
     protected function validateIP($ip)
@@ -95,6 +110,15 @@ class Apache
         $this->set('id', md5($name));
     }
 
+    protected function resolveFileName($name)
+    {
+        if (preg_match('/(.conf)$/', $name)) {
+            return $name;
+        }
+
+        return $name . '.conf';
+    }
+
     /**
      * Get the specified configuration value of the virtual host object
      *
@@ -102,88 +126,60 @@ class Apache
      *
      * @return mixed
      */
-    public function get($key)
+    public function get($key = null)
     {
-        if (key_exists($key, $this->configurations)) {
-            return $this->configurations[$key];
+        if ($this->configRepository->has($key)) {
+            return $this->configRepository->get($key);
         }
 
-        return $this->configurations;
+        return $this->configRepository->all();
     }
 
     /**
      * Create a temporary file containing virtual host configurations
      *
-     * @param string $fileName
+     * @TODO: Add get path to temporary folder in configurations file
      *
      * @return int
      */
-    public function create($fileName)
+    public function create()
     {
-        $DS   = DIRECTORY_SEPARATOR;
-        $file = realpath('.') . $DS . 'app' . $DS . 'tmp' . $DS . $fileName . '.conf';
+        $DS      = DIRECTORY_SEPARATOR;
+        $file    = realpath('.') . $DS . 'app' . $DS . 'tmp' . $DS . $this->get('file-name');
+        $content = $this->template->compile($this, $this->configRepository->all());
 
-        return $this->filesystem->put($file, $this->buildContent());
+        return $this->filesystem->put($file, $content);
     }
 
-    /**
-     * Host configuration template
-     *
-     * @return string
-     */
-    protected function buildContent()
+    public function setExecute(Execute $execute)
     {
-        $ip      = $this->resolveIp();
-        $alias   = $this->buildAliases();
-        $content = <<<CONF
-<VirtualHost {$ip}>
-    ServerAdmin {$this->configurations['server-admin']}
-    ServerName {$this->configurations['server-name']}
-    ServerAlias {$alias}
-    DocumentRoot {$this->configurations['document-root']}
+        $this->execute = $execute;
 
-    ErrorLog {$this->configurations['log-path']}/{$this->configurations['server-name']}-error.log
-    CustomLog {$this->configurations['log-path']}/{$this->configurations['server-name']}-access.log combined
-
-    <Directory {$this->configurations['document-root']}>
-        Options Indexes FollowSymLinks MultiViews
-        AllowOverride All
-        Require all granted
-    </Directory>
-</VirtualHost>
-CONF;
-
-        return $content;
+        return $this;
     }
 
-    /**
-     * Build serverAlias used in host configurations
-     *
-     * @return string
-     */
-    protected function buildAliases()
+    public function runEnableCommands(Execute $execute)
     {
-        $alias = 'www.' . $this->configurations['server-name'];
-        if (isset($this->configurations['server-alias']) && ! empty($this->configurations['server-alias'])) {
-            $alias .= ' ' . $this->configurations['server-alias'];
-        }
+        $this->setExecute($execute);
+        $this->moveConfigFile();
+        $this->enable();
+        $this->restart();
 
-        return $alias;
+        return true;
     }
 
-    /**
-     * Join IP and Port to use in host configurations.
-     * Format used in host file is IP:port.
-     *
-     * @return string
-     */
-    protected function resolveIp()
+    public function moveConfigFile()
     {
-        $ip = $this->configurations['ip'];
-        if (isset($this->configurations['port']) && ! empty($this->configurations['port'])) {
-            $ip .= ':' . $this->configurations['port'];
-        }
+        return $this->execute->moveConfig($this->get('file-name'));
+    }
 
-        return $ip;
+    public function enable()
+    {
+        return $this->execute->enable($this->get('file-name'));
+    }
+
+    public function restart()
+    {
+        return $this->execute->restart();
     }
 }
