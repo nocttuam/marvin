@@ -32,14 +32,11 @@ class Template
     /**
      * Template constructor.
      *
-     * @param Host       $host
      * @param Filesystem $filesystem
      */
-    public function __construct(Host $host, Filesystem $filesystem)
+    public function __construct(Filesystem $filesystem)
     {
-        $this->host       = $host;
         $this->filesystem = $filesystem;
-        $this->file($this->host->get('template-path'));
     }
 
     /**
@@ -78,34 +75,87 @@ class Template
      * Build new content replacing tags in template content
      * Return final content
      *
+     * @param Host  $host
      * @param array $tags
      *
      * @return string
      */
-    public function compile(array $tags)
+    public function compile(Host $host, array $tags)
     {
+        $this->setHost($host);
         $content = $this->content();
-        foreach ($tags as $tag => $value) {
-            $content = $this->replaceTag($tag, $value, $content);
-        }
+        $content = $this->parseOptionalTags($tags, $content);
+        $content = $this->parseRequiredTags($tags, $content);
 
         return $content;
     }
 
     /**
-     * Replace specified tag in template content
+     * Set Host with is calling a Template instance
      *
-     * @param string $tag
-     * @param string $value
-     * @param string $content
-     *
-     * @return string
+     * @param Host $host
      */
-    protected function replaceTag($tag, $value, $content)
+    protected function setHost(Host $host)
     {
-        $pattern = '/(' . '{{' . $tag . '}}' . ')/';
-        $result  = preg_replace($pattern, $value, $content);
+        $this->host = $host;
+        $this->file($this->host->get('template-path'));
+    }
 
-        return $result;
+    /**
+     * Search and replace optional tags.
+     * Delete wrap content if optional tag is not exist.
+     *
+     * @param array $tags
+     * @param       $content
+     *
+     * @return mixed
+     */
+    protected function parseOptionalTags(array $tags, $content)
+    {
+        $wraps = ['{!!', '!!}', '{{', '}}'];
+
+        return preg_replace_callback(
+            '/[{]{1}[!]{2}(.*)({{)(.+)(}})(.*)[!]{2}[}]{1}/',
+            function ($input) use ($tags, $wraps) {
+                $key     = $input[3];
+                $content = $input[0];
+                $output  = '';
+                if (key_exists($key, $tags)) {
+                    $output = str_replace($key, $tags[$key], $content);
+                    $output = str_replace($wraps, "", $output);
+                }
+
+                return $output;
+
+            },
+            $content
+        );
+    }
+
+    /**
+     * Search and replace required tags.
+     * Throw exception if tag is not in array $tags.
+     *
+     * @param array $tags
+     * @param       $content
+     *
+     * @throws \Exception
+     *
+     * @return mixed
+     */
+    protected function parseRequiredTags(array $tags, $content)
+    {
+        return preg_replace_callback(
+            '/[{]{2}([A-Za-z-]+)[}]{2}/',
+            function ($input) use ($tags) {
+                $key = $input[1];
+                if ( ! key_exists($key, $tags)) {
+                    throw new \Exception($key . ' is not a valid tag in template file.');
+                }
+
+                return $tags[$key];
+            },
+            $content
+        );
     }
 }
