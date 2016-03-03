@@ -24,12 +24,16 @@ class RepositoryTest extends \PHPUnit_Framework_TestCase
         $configs          = [
             'name'         => 'Marvin',
             'my-config'    => 'New Config',
-            'other-config' => 'More configurations'
+            'other-config' => 'More configurations',
+            'group'        => [
+                'item' => 'Dot notation',
+            ],
         ];
         $configRepository = new Repository($configs);
         $this->assertTrue($configRepository->has('name'));
         $this->assertTrue($configRepository->has('my-config'));
         $this->assertTrue($configRepository->has('other-config'));
+        $this->assertTrue($configRepository->has('group.item'));
     }
 
     public function testReturnFalseIfArrayIsEmptyOrKeyIsNull()
@@ -44,6 +48,27 @@ class RepositoryTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('Marvin', $configRepository->get('name'));
     }
 
+    public function testShouldReturnItemUsingDotNotation()
+    {
+        $items = [
+            'app'     => [
+                'name'      => 'Marvin',
+                'my-config' => 'New Config'
+            ],
+            'default' => [
+                'name' => 'Nothing',
+            ],
+            'last'    => 'item'
+        ];
+
+        $configRepository = new Repository($items);
+
+        $this->assertEquals('Marvin', $configRepository->get('app.name'));
+        $this->assertEquals('New Config', $configRepository->get('app.my-config'));
+        $this->assertEquals('Nothing', $configRepository->get('default.name'));
+        $this->assertEquals('item', $configRepository->get('last'));
+    }
+
     public function testGetAllItemsIfParameterIsInvalid()
     {
         $configRepository = new Repository($this->defaults);
@@ -56,27 +81,30 @@ class RepositoryTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('Marvin', $configRepository->get('package', 'Marvin'));
     }
 
-    public function testShouldChangeDefaultValues()
+    public function testShouldSetValuesCorrectly()
     {
-        $defaults = [
-            'host' => 'Apache',
-            'name' => 'Trillian',
+        $items = [
+            'app'    => 'Marvin',
+            'config' => 'Configuration',
+            'fixed' => 'Dont change'
         ];
 
-        $new              = [
-            'host' => 'Ngnix',
-            'name' => 'Zooei'
+        $expected = [
+            'app' => [
+                'name' => 'Marvin',
+                'describe' => 'Manager Virtual Hosts',
+            ],
+            'config' => 'New Configurations',
+            'fixed' => 'Dont change'
         ];
-        $configRepository = new Repository($defaults);
 
-        $configRepository->set('host', $new['host']);
-        $configRepository->set('name', $new['name']);
+        $configRepository = new Repository($items);
 
-        $this->assertNotEquals($defaults['host'], $configRepository->get('host'));
-        $this->assertEquals($new['host'], $configRepository->get('host'));
-        $this->assertNotEquals($defaults['name'], $configRepository->get('name'));
-        $this->assertEquals($new['name'], $configRepository->get('name'));
+        $configRepository->set('app.name', 'Marvin');
+        $configRepository->set('app.describe', 'Manager Virtual Hosts');
+        $configRepository->set('config', 'New Configurations');
 
+        $this->assertEquals($expected, $configRepository->all());
     }
 
     public function testReturnCompleteConfigurationList()
@@ -84,6 +112,30 @@ class RepositoryTest extends \PHPUnit_Framework_TestCase
         $configRepository = new Repository($this->defaults);
 
         $this->assertEquals($this->defaults, $configRepository->all());
+    }
+
+    public function testShouldImplementsArrayAccessInterface()
+    {
+        $expected = [
+            'app' => [
+                'name' => 'Marvin',
+                'describe' => 'Manager Virtual Hosts',
+            ],
+            'config' => 'New Configurations',
+        ];
+
+        $configRepository = new Repository();
+
+        $configRepository['app.name'] = 'Marvin';
+        $configRepository['app.describe'] = 'Manager Virtual Hosts';
+        $configRepository['config'] = 'New Configurations';
+
+        $configRepository->set('app.name', 'Marvin');
+        $configRepository->set('app.describe', 'Manager Virtual Hosts');
+        $configRepository->set('config', 'New Configurations');
+
+        $this->assertInstanceOf('ArrayAccess', $configRepository);
+        $this->assertEquals($expected, $configRepository->all());
     }
 
 }

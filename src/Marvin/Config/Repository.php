@@ -1,7 +1,9 @@
 <?php
 namespace Marvin\Config;
 
-class Repository
+use ArrayAccess;
+
+class Repository implements ArrayAccess
 {
     /**
      * List of the configurations items
@@ -29,20 +31,31 @@ class Repository
      */
     public function has($key)
     {
-        if (empty($this->items) || is_null($key)) {
+        $array = $this->items;
+
+        if (empty($array) || is_null($key)) {
             return false;
         }
 
-        if (array_key_exists($key, $this->items)) {
+        if (array_key_exists($key, $array)) {
             return true;
         }
 
-        return false;
+        foreach (explode('.', $key) as $segment) {
+            if (array_key_exists($segment, $array)) {
+                $array = $array[$segment];
+            } else {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
      * Get specified configuration if exist.
      * If configuration not exist and default is set return default value.
+     * Support dot notation
      *
      * @param string $key
      * @param null   $default
@@ -51,25 +64,51 @@ class Repository
      */
     public function get($key, $default = null)
     {
-        if ($this->has($key) && isset($this->items[$key])) {
+        $array = $this->items;
+
+        if (isset($array[$key])) {
             return $this->items[$key];
         }
-        if ( ! $this->has($key) && ! is_null($default)) {
-            return $default;
+
+        foreach (explode('.', $key) as $segment) {
+            if (array_key_exists($segment, $array)) {
+                $array = $array[$segment];
+            } elseif ( ! is_null($default)) {
+                return $default;
+            }
         }
 
-        return $this->items;
+        return $array;
     }
 
     /**
      * Set configuration name and value
+     * Support dot notation
      *
      * @param string $key
      * @param string $value
+     *
+     * @return mixed
      */
     public function set($key, $value)
     {
-        $this->items[$key] = $value;
+        $array = &$this->items;
+
+        if (is_null($key)) {
+            return $array = $value;
+        }
+
+        $keys = explode('.', $key);
+
+        while (count($keys) > 1) {
+            $key = array_shift($keys);
+            if (! isset($array[$key]) || ! is_array($array[$key])) {
+                $array[$key] = [];
+            }
+            $array = &$array[$key];
+        }
+        $array[array_shift($keys)] = $value;
+        return $array;
     }
 
     /**
@@ -80,5 +119,46 @@ class Repository
     public function all()
     {
         return $this->items;
+    }
+
+    /**
+     * @param mixed $key
+     *
+     * @return mixed
+     */
+    public function offsetExists($key)
+    {
+        $this->has($key);
+    }
+
+    /**
+     * @param mixed $key
+     *
+     * @return mixed
+     */
+    public function offsetGet($key)
+    {
+        $this->get($key);
+    }
+
+    /**
+     * @param mixed $key
+     * @param mixed $value
+     *
+     * @return mixed
+     */
+    public function offsetSet($key, $value)
+    {
+        $this->set($key, $value);
+    }
+
+    /**
+     * @param mixed $key
+     *
+     * @return mixed
+     */
+    public function offsetUnset($key)
+    {
+        $this->set($key, null);
     }
 }
