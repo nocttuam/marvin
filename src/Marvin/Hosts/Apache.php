@@ -3,101 +3,88 @@ namespace Marvin\Hosts;
 
 use Marvin\Contracts\Host;
 use Marvin\Contracts\Execute;
-use Marvin\Filesystem\Filesystem;
 use Marvin\Filesystem\Template;
 use Marvin\Config\Repository as ConfigRepository;
 
 class Apache implements Host
 {
+    /**
+     * @var ConfigRepository
+     */
     protected $configRepository;
 
     /**
-     * Shell Manager.
-     * To run commands necessaries to configuration.
-     *
+     * @var Template
+     */
+    protected $template;
+
+    /**
      * @var Execute
      */
     protected $execute;
-
-    /**
-     * Filesystem Manager
-     *
-     * @var Filesystem
-     */
-    protected $filesystem;
-
-    protected $template;
 
 
     /**
      * Apache constructor.
      *
      * @param ConfigRepository $configRepository
-     * @param Filesystem       $filesystem
      * @param Template         $template
      */
-    public function __construct(ConfigRepository $configRepository, Filesystem $filesystem, Template $template)
+    public function __construct(ConfigRepository $configRepository, Template $template)
     {
         $this->configRepository = $configRepository;
-        $this->filesystem       = $filesystem;
         $this->template         = $template;
     }
 
+
     /**
-     * Set a given configuration name and value
+     * Set IP used to access virtual host
+     * If IP is invalid throw exception
      *
-     * @param string $key
-     * @param string $value
+     * @param $ip
+     *
+     * @throws \InvalidArgumentException
      *
      * @return $this
      */
-    public function set($key, $value)
+    public function setIP($ip)
     {
-        $value = $this->parseParameters($key, $value);
-        $this->configRepository->set($key, $value);
+        if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
+            throw new \InvalidArgumentException('This is not a valid IP: ' . $ip);
+        }
+        $this->configRepository->set('apache.ip', $ip);
 
         return $this;
     }
 
     /**
-     * Process configurations items.
-     * Validate IP, build id, turn alias list in a string
+     * Set Port number used to access virtual host
      *
-     * @param string $key
-     * @param string $value
+     * @param $port
      *
-     * @return string
+     * @return $this
      */
-    protected function parseParameters($key, $value)
+    public function setPort($port)
     {
-        switch ($key) {
-            case 'ip':
-                $this->validateIP($value);
-                break;
-            case 'server-name':
-                $this->id($value);
-                break;
-            case 'server-alias':
-                return implode(' ', $value);
-            case 'file-name':
-                return $this->resolveFileName($value);
-        }
+        $this->configRepository->set('apache.port', $port);
 
-        return $value;
+        return $this;
     }
 
+
     /**
-     * If IP is invalid throw exception
+     * Name used to identify the virtual host
      *
-     * @param string $ip
+     * @param $serverName
      *
-     * @throws \InvalidArgumentException
+     * @return $this
      */
-    protected function validateIP($ip)
+    public function setServerName($serverName)
     {
-        if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
-            throw new \InvalidArgumentException('This is not a valid IP: ' . $ip);
-        }
+        $this->setID($serverName);
+        $this->configRepository->set('apache.server-name', $serverName);
+
+        return $this;
     }
 
     /**
@@ -105,18 +92,78 @@ class Apache implements Host
      *
      * @param string $name
      */
-    protected function id($name)
+    protected function setID($name)
     {
-        $this->set('id', md5($name));
+        $this->configRepository->set('apache.id', md5($name));
     }
 
-    protected function resolveFileName($name)
+    /**
+     * Alternate names for a host
+     *
+     * @param array $serverAlias
+     *
+     * @return $this
+     */
+    public function setServerAlias(array $serverAlias)
     {
-        if (preg_match('/(.conf)$/', $name)) {
-            return $name;
-        }
+        $this->configRepository->set('apache.server-alias', implode(' ', $serverAlias));
 
-        return $name . '.conf';
+        return $this;
+    }
+
+    /**
+     * Email include in error messages
+     *
+     * @param $serverAdmin
+     *
+     * @return $this
+     */
+    public function setServerAdmin($serverAdmin)
+    {
+        $this->configRepository->set('apache.server-admin', $serverAdmin);
+
+        return $this;
+    }
+
+    /**
+     * Directory containing main documents tree visible in web
+     *
+     * @param $path
+     *
+     * @return $this
+     */
+    public function setDocumentRoot($path)
+    {
+        $this->configRepository->set('apache.document-root', $path);
+
+        return $this;
+    }
+
+    /**
+     * Location where will log errors
+     *
+     * @param $path
+     *
+     * @return $this
+     */
+    public function setLogDir($path)
+    {
+        $this->configRepository->set('apache.log-dir', $path);
+
+        return $this;
+    }
+
+    /**
+     * Set name used to the configuration file
+     *
+     * @param $name
+     */
+    public function setFileName($name)
+    {
+        if ( ! preg_match('/(.conf)$/', $name)) {
+            $name .= '.conf';
+        }
+        $this->configRepository->set('apache.file-name', $name);
     }
 
     /**
@@ -124,12 +171,20 @@ class Apache implements Host
      *
      * @param string $key
      *
+     * @param bool   $default
+     *
      * @return mixed
      */
-    public function get($key = null)
+    public function get($key = null, $default = false)
     {
-        if ($this->configRepository->has($key)) {
-            return $this->configRepository->get($key);
+        if (($default || ! $this->configRepository->has('apache.' . $key)) &&
+            $this->configRepository->has('default.' . $key)
+        ) {
+            return $this->configRepository->get('default.' . $key);
+        }
+
+        if ($this->configRepository->has('apache.' . $key)) {
+            return $this->configRepository->get('apache.' . $key);
         }
 
         return $this->configRepository->all();
@@ -138,48 +193,27 @@ class Apache implements Host
     /**
      * Create a temporary file containing virtual host configurations
      *
-     * @TODO: Add get path to temporary folder in configurations file
-     *
-     * @return int
+     * @return bool
      */
     public function create()
     {
-        $DS      = DIRECTORY_SEPARATOR;
-        $file    = realpath('.') . $DS . 'app' . $DS . 'tmp' . $DS . $this->get('file-name');
-        $content = $this->template->compile($this, $this->configRepository->all());
+        $apache   = $this->configRepository->get('apache');
+        $defaults = $this->configRepository->get('defaults');
+        $tags     = array_merge($defaults, $apache);
 
-        return $this->filesystem->put($file, $content);
+        return $this->template->compile($this, $tags);
     }
 
-    public function setExecute(Execute $execute)
+    /**
+     * Execute commands of the system to create and enable virtual host
+     *
+     * @param Execute $execute
+     *
+     * @return Execute
+     */
+    public function execute(Execute $execute)
     {
-        $this->execute = $execute;
-
-        return $this;
-    }
-
-    public function runEnableCommands(Execute $execute)
-    {
-        $this->setExecute($execute);
-        $this->moveConfigFile();
-        $this->enable();
-        $this->restart();
-
-        return true;
-    }
-
-    public function moveConfigFile()
-    {
-        return $this->execute->moveConfig($this->get('file-name'));
-    }
-
-    public function enable()
-    {
-        return $this->execute->enable($this->get('file-name'));
-    }
-
-    public function restart()
-    {
-        return $this->execute->restart();
+        $execute->setHost($this);
+        return $execute;
     }
 }

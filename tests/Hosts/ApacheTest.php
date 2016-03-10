@@ -19,10 +19,6 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                                        ->setMethods(null)
                                        ->getMock();
 
-        $this->filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
-                                 ->setMethods(null)
-                                 ->getMock();
-
         $this->template = $this->getMockBuilder('Marvin\Filesystem\Template')
                                ->disableOriginalConstructor()
                                ->setMethods(null)
@@ -35,57 +31,23 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                                  ->setMethods(null)
                                  ->getMock();
 
-        $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
-                           ->setMethods(null)
-                           ->getMock();
-
         $template = $this->getMockBuilder('Marvin\Filesystem\Template')
                          ->disableOriginalConstructor()
                          ->setMethods(null)
                          ->getMock();
 
-        $vhManager = new Apache($configRepository, $filesystem, $template);
+        $vhManager = new Apache($configRepository, $template);
 
         $this->assertAttributeInstanceOf('Marvin\Config\Repository', 'configRepository', $vhManager);
-        $this->assertAttributeInstanceOf('Marvin\Filesystem\Filesystem', 'filesystem', $vhManager);
         $this->assertAttributeInstanceOf('Marvin\Filesystem\Template', 'template', $vhManager);
     }
 
-    public function testShouldSetParametersCorrectly()
+    public function testShouldSetIPAndPortCorrectly()
     {
-        $ip = '192.168.42.42';
+        $ip   = '192.168.42.42';
+        $port = '9090';
 
-        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
-                                 ->disableOriginalConstructor()
-                                 ->setMethods(['set'])
-                                 ->getMock();
-
-        $configRepository->expects($this->once())
-                         ->method('set')
-                         ->with(
-                             $this->equalTo('ip'),
-                             $this->equalTo($ip)
-                         );
-
-        $vhManager = new Apache($configRepository, $this->filesystem, $this->template);
-        $this->assertInstanceOf('Marvin\Hosts\Apache', $vhManager->set('ip', $ip));
-    }
-
-    /**
-     * @expectedException \InvalidArgumentException
-     * @expectedExceptionMessage This is not a valid IP:
-     */
-    public function testThrowExceptionIfIpIsInvalid()
-    {
-        $vhManager = new Apache($this->configRepository, $this->filesystem, $this->template);
-
-        $vhManager->set('ip', '42.42.42');
-    }
-
-    public function testBuildIdToHost()
-    {
-        $serverName = 'mavin.host';
-        $expected   = md5($serverName);
+        $configurations = [];
 
         $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
                                  ->disableOriginalConstructor()
@@ -95,13 +57,60 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
         $configRepository->expects($this->exactly(2))
                          ->method('set')
                          ->withConsecutive(
-                             [$this->equalTo('id'), $this->equalTo($expected)],
-                             [$this->equalTo('server-name'), $this->equalTo($serverName)]
-                         );
+                             [$this->equalTo('apache.ip'), $this->equalTo($ip)],
+                             [$this->equalTo('apache.port'), $this->equalTo($port)]
+                         )
+                         ->will($this->returnCallback(function ($key, $value) use (&$configurations) {
+                             $configurations[$key] = $value;
+                         }));
 
-        $vhManager = new Apache($configRepository, $this->filesystem, $this->template);
+        $vhManager = new Apache($configRepository, $this->template);
 
-        $this->assertInstanceOf('Marvin\Hosts\Apache', $vhManager->set('server-name', $serverName));
+        $vhManager->setIP($ip);
+        $vhManager->setPort($port);
+
+        $this->assertEquals($ip, $configurations['apache.ip']);
+        $this->assertEquals($port, $configurations['apache.port']);
+    }
+
+    /**
+     * @expectedException \InvalidArgumentException
+     * @expectedExceptionMessage This is not a valid IP:
+     */
+    public function testThrowExceptionIfIpIsInvalid()
+    {
+        $vhManager = new Apache($this->configRepository, $this->template);
+
+        $vhManager->setIP('42.42.42');
+    }
+
+    public function testShouldSetServerNameAndBuildID()
+    {
+        $serverName     = 'mavin.host';
+        $expected       = md5($serverName);
+        $configurations = [];
+
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->disableOriginalConstructor()
+                                 ->setMethods(['set'])
+                                 ->getMock();
+
+        $configRepository->expects($this->exactly(2))
+                         ->method('set')
+                         ->withConsecutive(
+                             [$this->equalTo('apache.id'), $this->equalTo($expected)],
+                             [$this->equalTo('apache.server-name'), $this->equalTo($serverName)]
+                         )
+                         ->will($this->returnCallback(function ($key, $value) use (&$configurations) {
+                             $configurations[$key] = $value;
+                         }));
+
+        $vhManager = new Apache($configRepository, $this->template);
+
+        $vhManager->setServerName($serverName);
+
+        $this->assertEquals($serverName, $configurations['apache.server-name']);
+        $this->assertEquals($expected, $configurations['apache.id']);
     }
 
 
@@ -115,6 +124,8 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
 
         $expected = 'marvin.dev marvin.host marvin.local';
 
+        $configurations = [];
+
         $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
                                  ->disableOriginalConstructor()
                                  ->setMethods(['set'])
@@ -122,46 +133,129 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
 
         $configRepository->expects($this->once())
                          ->method('set')
-                         ->with($this->equalTo('server-alias'), $this->equalTo($expected));
+                         ->with($this->equalTo('apache.server-alias'), $this->equalTo($expected))
+                         ->will($this->returnCallback(function ($key, $value) use (&$configurations) {
+                             $configurations[$key] = $value;
+                         }));
 
-        $vhManager = new Apache($configRepository, $this->filesystem, $this->template);
+        $vhManager = new Apache($configRepository, $this->template);
 
-        $this->assertInstanceOf('Marvin\Hosts\Apache', $vhManager->set('server-alias', $alias));
+        $vhManager->setServerAlias($alias);
+
+        $this->assertEquals($expected, $configurations['apache.server-alias']);
     }
 
-
-    public function testBuildCorrectFileNameAddingExtensionIfNotExist()
+    /**
+     * @dataProvider fileNamesProvider
+     */
+    public function testBuildCorrectFileNameAddingExtensionIfNotExist($name, $expected)
     {
-        $file = [
-            'with-extension'    => 'marvin.local.conf',
-            'without-extension' => 'marvin.local',
-        ];
+
+        $configurations = [];
 
         $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
                                  ->disableOriginalConstructor()
                                  ->setMethods(['set'])
                                  ->getMock();
 
-        $configRepository->expects($this->exactly(2))
+        $configRepository->expects($this->any())
+                         ->method('set')
+                         ->with($this->equalTo('apache.file-name'), $this->equalTo($expected))
+                         ->will($this->returnCallback(function ($key, $value) use (&$configurations) {
+                             $configurations[$key] = $value;
+                         }));
+
+        $vhManager = new Apache($configRepository, $this->template);
+
+        $vhManager->setFileName($name);
+        $this->assertEquals($expected, $configurations['apache.file-name']);
+
+    }
+
+    public function fileNamesProvider()
+    {
+        return [
+            ['marvin.local', 'marvin.local.conf'],
+            ['marvin.conf', 'marvin.conf'],
+            ['marvin', 'marvin.conf'],
+        ];
+    }
+
+    public function testSetPathsForDocumentsAndLogs()
+    {
+        $documentRoot = 'my/web/application/root';
+        $logDir       = 'my/web/application/root/logs';
+
+
+        $configurations = [];
+
+
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->disableOriginalConstructor()
+                                 ->setMethods(['set'])
+                                 ->getMock();
+
+        $configRepository->expects($this->any())
                          ->method('set')
                          ->withConsecutive(
-                             [$this->equalTo('file-name'), $this->equalTo($file['with-extension'])],
-                             [$this->equalTo('file-name'), $this->equalTo($file['with-extension'])]
-                         );
+                             [$this->equalTo('apache.document-root'), $this->equalTo($documentRoot)],
+                             [$this->equalTo('apache.log-dir'), $this->equalTo($logDir)]
+                         )
+                         ->will($this->returnCallback(function ($key, $value) use (&$configurations
+                         ) {
+                             $configurations[$key] = $value;
+                         }));
 
-        $vhManager = new Apache($configRepository, $this->filesystem, $this->template);
 
-        $this->assertInstanceOf('Marvin\Hosts\Apache', $vhManager->set('file-name', $file['without-extension']));
-        $this->assertInstanceOf('Marvin\Hosts\Apache', $vhManager->set('file-name', $file['with-extension']));
+        $vhManager = new Apache($configRepository, $this->template);
 
+        $vhManager->setDocumentRoot($documentRoot);
+        $vhManager->setLogDir($logDir);
+
+        $this->assertEquals($documentRoot, $configurations['apache.document-root']);
+        $this->assertEquals($logDir, $configurations['apache.log-dir']);
+    }
+
+    public function testSetServerAdminCorrectly()
+    {
+        $serverAdmin = 'web@master';
+
+
+        $configurations = [];
+
+
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->disableOriginalConstructor()
+                                 ->setMethods(['set'])
+                                 ->getMock();
+
+        $configRepository->expects($this->any())
+                         ->method('set')
+                         ->with($this->equalTo('apache.server-admin'), $this->equalTo($serverAdmin))
+                         ->will($this->returnCallback(function ($key, $value) use (&$configurations
+                         ) {
+                             $configurations[$key] = $value;
+                         }));
+
+
+        $vhManager = new Apache($configRepository, $this->template);
+
+        $vhManager->setServerAdmin($serverAdmin);
+
+        $this->assertEquals($serverAdmin, $configurations['apache.server-admin']);
     }
 
     public function testShouldReturnValueIfKeyExistIfNotReturnAllConfigurations()
     {
         $configurations = [
-            'ip'           => '192.168.42.42',
-            'server-admin' => 'webmaster@marvin',
-            'log-path'     => '${APACHE_LOG_DIR}',
+            'apache'  => [
+                'ip'           => '192.168.4.2',
+                'server-admin' => 'webmaster@marvin',
+            ],
+            'default' => [
+                'ip'   => '192.168.42.42',
+                'port' => '8080',
+            ],
         ];
 
         $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
@@ -171,64 +265,59 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
 
         $configRepository->expects($this->any())
                          ->method('has')
-                         ->will($this->returnCallback(function ($key) use ($configurations) {
-                             return key_exists($key, $configurations);
-                         }
-                         ));
+                         ->will($this->returnCallback(function ($key) use (&$configurations) {
+                             $keys = explode('.', $key);
+
+                             return key_exists($keys[1], $configurations[$keys[0]]);
+                         }));
+
 
         $configRepository->expects($this->any())
                          ->method('get')
-                         ->will($this->returnCallback(
-                             function ($key) use ($configurations) {
-                                 switch ($key) {
-                                     case 'ip':
-                                         return $configurations['ip'];
-                                     case 'server-admin':
-                                         return $configurations['server-admin'];
-                                     case 'log-path':
-                                         return $configurations['log-path'];
-                                 }
-                             }
-                         ));
+                         ->will($this->returnCallback(function ($key) use (&$configurations) {
+                             $keys = explode('.', $key);
 
-        $configRepository->expects($this->once())
+                             return $configurations[$keys[0]][$keys[1]];
+                         }));
+
+        $configRepository->expects($this->exactly(2))
                          ->method('all')
                          ->will($this->returnValue($configurations));
 
-        $vhManager = new Apache($configRepository, $this->filesystem, $this->template);
+        $vhManager = new Apache($configRepository, $this->template);
 
-        $this->assertEquals($configurations['ip'], $vhManager->get('ip'));
-        $this->assertEquals($configurations['server-admin'], $vhManager->get('server-admin'));
-        $this->assertEquals($configurations['log-path'], $vhManager->get('log-path'));
+        $this->assertEquals($configurations['apache']['ip'], $vhManager->get('ip'));
+        $this->assertEquals($configurations['default']['ip'], $vhManager->get('ip', true));
+        $this->assertEquals($configurations['default']['port'], $vhManager->get('port'));
+        $this->assertEquals($configurations['default']['port'], $vhManager->get('port', true));
+        $this->assertEquals($configurations['apache']['server-admin'], $vhManager->get('server-admin'));
+        $this->assertEquals($configurations['apache']['server-admin'], $vhManager->get('server-admin', true));
+        $this->assertEquals($configurations, $vhManager->get('false-key'));
         $this->assertEquals($configurations, $vhManager->get());
     }
 
 
     public function testCreateTemporaryConfigurationFileForTheHost()
     {
-        $content        = <<<CONF
-<VirtualHost 192.168.4.2:8080>
-    ServerAdmin marvin@emailhost
-    ServerName marvin.dev
-    ServerAlias www.marvin.dev marvin.local.dev marvin.develop.host
-    DocumentRoot /home/marvin/site/public
-
-    ErrorLog /home/marvin/logs/marvin.dev-error.log
-    CustomLog /home/marvin/logs/marvin.dev-access.log combined
-
-    <Directory /home/marvin/site/public>
-        Options Indexes FollowSymLinks MultiViews
-        AllowOverride All
-        Require all granted
-    </Directory>
-</VirtualHost>
-CONF;
-        $fileName       = 'marvin.host';
-        $configurations = [
-            'file-name' => 'marvin.host'
+        $configs = [
+            'apache'   => [
+                'log-dir' => '${APACHE_LOG_DIR}',
+            ],
+            'defaults' => [
+                'ip'   => '192.168.42.42',
+                'port' => '8080',
+            ],
         ];
-        $DS             = DIRECTORY_SEPARATOR;
-        $file           = realpath('.') . $DS . 'app' . $DS . 'tmp' . $DS . $configurations['file-name'] . '.conf';
+
+        $expectedTags = [
+            'ip'            => '192.168.4.2',
+            'port'          => '8080',
+            'server-name'   => 'marvin.dev',
+            'document-root' => '/home/marvin/app/public',
+            'log-dir'       => '${APACHE_LOG_DIR}',
+            'file-name'     => 'marvin.dev.conf',
+            'id'            => md5('marvin.dev'),
+        ];
 
         // Config\Repository Mock
         $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
@@ -238,37 +327,41 @@ CONF;
 
         $configRepository->expects($this->any())
                          ->method('set')
-                         ->will($this->returnCallback(function ($key, $value) use (&$configurations) {
-                             $configurations[$key] = $value;
+                         ->will($this->returnCallback(function ($key, $value) use (&$configs) {
+                             if (key_exists($key, $configs)) {
+                                 $configs[$key] = $value;
+                             }
+                             $keys                        = explode('.', $key);
+                             $configs[$keys[0]][$keys[1]] = $value;
                          }));
 
         $configRepository->expects($this->any())
                          ->method('get')
-                         ->will($this->returnCallback(function ($key = null) use (&$configurations) {
-                             if (key_exists($key, $configurations)) {
-                                 return $configurations[$key];
+                         ->will($this->returnCallback(function ($key) use (&$configs) {
+                             if (key_exists($key, $configs)) {
+                                 return $configs[$key];
                              }
 
-                             return $configurations;
+                             $keys = explode('.', $key);
+
+                             return $configs[$keys[0]][$keys[1]];
                          }));
 
         $configRepository->expects($this->any())
                          ->method('all')
-                         ->will($this->returnValue($configurations));
+                         ->will($this->returnValue($configs));
 
         $configRepository->expects($this->any())
                          ->method('has')
-                         ->will($this->returnValue(true));
+                         ->will($this->returnCallback(function ($key) use (&$configs) {
+                             if (key_exists($key, $configs)) {
+                                 return true;
+                             }
 
-        // Filesystem Mock
-        $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
-                           ->setMethods(['put'])
-                           ->getMock();
+                             $keys = explode('.', $key);
 
-        $filesystem->expects($this->any())
-                   ->method('put')
-                   ->with($this->equalTo($file), $this->equalTo($content))
-                   ->will($this->returnValue(true));
+                             return key_exists($keys[1], $configs[$keys[0]]);
+                         }));
 
 
         // Filesystem\Template Mock
@@ -278,85 +371,36 @@ CONF;
                          ->getMock();
 
         // Virtual Host Manager Instance
-        $vhManager = new Apache($configRepository, $filesystem, $template);
+        $vhManager = new Apache($configRepository, $template);
 
         // Template method
         $template->expects($this->once())
                  ->method('compile')
-                 ->with($this->identicalTo($vhManager), $this->equalTo($configurations))
-                 ->will($this->returnValue($content));
+                 ->with($this->identicalTo($vhManager), $this->equalTo($expectedTags))
+                 ->will($this->returnValue(true));
 
 
-        $vhManager->set('id', '192.168.4.2')
-                  ->set('port', 8080)
-                  ->set('server-admin', 'marvin@localhost')
-                  ->set('server-name', 'marvin.dev')
-                  ->set('server-alias', ['marvin.local.dev', 'marvin.develop.host'])
-                  ->set('log-path', '/home/marvin/logs/')
-                  ->set('directory-root', '/home/marvin/site/public')
-                  ->set('file-name', $configurations['file-name']);
+        $vhManager->setIP('192.168.4.2')
+                  ->setServerName('marvin.dev')
+                  ->setDocumentRoot('/home/marvin/app/public')
+                  ->setFileName('marvin.dev');
 
 
         $this->assertTrue($vhManager->create());
     }
 
-    public function testSetExecuteClassInstance()
+    public function testReturnExecuteInstanceConfiguredToUse()
     {
         $execute = $this->getMockBuilder('Marvin\Contracts\Execute')
-                        ->setMethods(['moveConfig', 'enable', 'restart'])
+                        ->setMethods([])
                         ->getMock();
 
-        $vhManager = new Apache($this->configRepository, $this->filesystem, $this->template);
+        $vhManager = new Apache($this->configRepository, $this->template);
 
-        $vhManager->setExecute($execute);
+        $execute->expects($this->once())
+                ->method('setHost')
+                ->with($this->identicalTo($vhManager));
 
-        $this->assertAttributeInstanceOf('Marvin\Contracts\Execute', 'execute', $vhManager);
-    }
-
-    public function testRunCommandsToEnableSiteAndRestartApache()
-    {
-        $file = 'marvin.host.conf';
-
-        // Config Repository
-
-        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
-                                 ->setMethods(['get', 'has'])
-                                 ->getMock();
-
-        $configRepository->expects($this->any())
-                         ->method('get')
-                         ->will($this->returnValue($file));
-
-        $configRepository->expects($this->any())
-                         ->method('has')
-                         ->will($this->returnValue(true));
-
-        // Execute
-        $execute = $this->getMockBuilder('Marvin\Contracts\Execute')
-                        ->setMethods(['moveConfig', 'enable', 'restart'])
-                        ->getMock();
-
-        $execute->expects($this->exactly(2))
-                ->method('moveConfig')
-                ->with($this->equalTo($file))
-                ->will($this->returnValue('File moved success'));
-
-        $execute->expects($this->exactly(2))
-                ->method('enable')
-                ->with($this->equalTo($file))
-                ->will($this->returnValue('Site enabled success'));
-
-        $execute->expects($this->exactly(2))
-                ->method('restart')
-                ->will($this->returnValue('Apache restarted success'));
-
-
-        $vhManager = new Apache($configRepository, $this->filesystem, $this->template);
-
-        $this->assertTrue($vhManager->runEnableCommands($execute));
-        $this->assertAttributeInstanceOf('Marvin\Contracts\Execute', 'execute', $vhManager);
-        $this->assertEquals('File moved success', $vhManager->moveConfigFile());
-        $this->assertEquals('Site enabled success', $vhManager->enable());
-        $this->assertEquals('Apache restarted success', $vhManager->restart());
+        $this->assertInstanceOf('Marvin\Contracts\Execute', $vhManager->execute($execute));
     }
 }

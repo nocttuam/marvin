@@ -4,27 +4,24 @@ namespace Marvin\Contracts;
 interface Execute
 {
     /**
-     * Move configuration file to Apache configurations directory
+     * Set the Virtual Host Manager
      *
-     * @param $file
-     *
-     * @return mixed
+     * @param Host $host
      */
-    public function moveConfig($file);
+    public function setHost(Host $host);
+
+    /**
+     * Move configuration file to Apache configurations directory
+     */
+    public function moveConfig();
 
     /**
      * Run command to enable new host
-     *
-     * @param string $file
-     *
-     * @return mixed
      */
-    public function enable($file);
+    public function enable();
 
     /**
      * Restart Apache service
-     *
-     * @return mixed
      */
     public function restart();
 }

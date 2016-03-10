@@ -3,13 +3,56 @@ namespace Marvin\Contracts;
 
 interface Host
 {
+
     /**
-     * Set a given configuration name and value
+     * Set IP used to access virtual host
+     * If IP is invalid throw exception
      *
-     * @param string $key
-     * @param string $value
+     * @param $ip
      */
-    public function set($key, $value);
+    public function setIP($ip);
+
+    /**
+     * Set Port number used to access virtual host
+     *
+     * @param $port
+     */
+    public function setPort($port);
+
+    /**
+     * Name used to identify the virtual host
+     *
+     * @param $serverName
+     */
+    public function setServerName($serverName);
+
+    /**
+     * Alternate names for a host
+     *
+     * @param array $serverAlias
+     */
+    public function setServerAlias(array $serverAlias);
+
+    /**
+     * Directory containing main documents tree visible in web
+     *
+     * @param $path
+     */
+    public function setDocumentRoot($path);
+
+    /**
+     * Location where will log errors
+     *
+     * @param $path
+     */
+    public function setLogDir($path);
+
+    /**
+     * Set name used to the configuration file
+     *
+     * @param $name
+     */
+    public function setFileName($name);
 
     /**
      * Get the specified configuration value of the virtual host object
