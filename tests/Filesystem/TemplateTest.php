@@ -14,7 +14,11 @@ class TemplateTest extends \PHPUnit_Framework_TestCase
                            ->setMethods([])
                            ->getMock();
 
-        $template = new Template($filesystem);
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->setMethods([])
+                                 ->getMock();
+
+        $template = new Template($configRepository, $filesystem);
 
         $this->assertAttributeInstanceOf(
             'Marvin\Filesystem\Filesystem',
@@ -22,198 +26,124 @@ class TemplateTest extends \PHPUnit_Framework_TestCase
             $template
         );
 
+        $this->assertAttributeInstanceOf(
+            'Marvin\Config\Repository',
+            'configRepository',
+            $template
+        );
 
     }
 
-//    public function testSetHostUsingTemplate()
-//    {
-//        $file = '/path/to/template.stub';
-//
-//        $host = $this->getMockBuilder('Marvin\Contracts\Host')
-//                    ->setMethods([])
-//                    ->getMock();
-//
-//        $host->expects($this->once())
-//             ->method('get')
-//             ->will($this->returnValue($file));
-//
-//        $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
-//                           ->setMethods(['exists', 'get'])
-//                           ->getMock();
-//
-//        $filesystem->expects($this->once())
-//                   ->method('exists')
-//                   ->will($this->returnValue(true));
-//
-//        $filesystem->expects($this->once())
-//                   ->method('get')
-//                   ->will($this->returnValue('Content'));
-//
-//        $this->assertAttributeInstanceOf(
-//            'Marvin\Contracts\Host',
-//            'host',
-//            $template
-//        );
-//
-//        $template = new Template($filesystem);
-//
-//
-//        $this->assertAttributeEquals(
-//            $file,
-//            'file',
-//            $template
-//        );
-//    }
-
-    public function testShouldSetFilePathAndContentIfFileIsValidTemplate()
+    public function testCompileNewConfigurationsFileAndReturnResult()
     {
-        $file = '/path/to/template/file.stub';
+        $configurations = [
+            'app'      => [
+                'template-dir'  => '/app/templates',
+                'temporary-dir' => 'app/temp',
+            ],
+            'apache'   => [
+                'host'          => 'apache',
+                'ip'            => '192.168.4.2',
+                'server-name'   => 'marvin.dev',
+                'server-alias'  => 'www.marvin.dev marvin.local.dev marvin.develop.host',
+                'document-root' => '/home/marvin/site/public',
+                'file-name'     => 'marvin.dev.conf',
+            ],
+            'defaults' => [
+                'port' => '8080',
+            ],
+        ];
 
-        $content = 'This is a content';
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->setMethods(['get'])
+                                 ->getMock();
+
+        $configRepository->expects($this->any())
+                         ->method('get')
+                         ->will($this->returnCallback(function ($key) use ($configurations) {
+                             if (key_exists($key, $configurations)) {
+                                 return $configurations[$key];
+                             }
+                             $keys = explode('.', $key);
+                             if (key_exists($keys[0], $configurations)) {
+                                 return $configurations[$keys[0]][$keys[1]];
+                             }
+
+                             return $configurations;
+                         }));
 
 
-        $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
-                           ->setMethods(['exists', 'get'])
-                           ->getMock();
+        // VHostManager setups
 
-        $filesystem->expects($this->any())
-                   ->method('exists')
-                   ->will($this->returnValue(true));
+        $vhManager = $this->getMockBuilder('Marvin\Contracts\HostManager')
+                          ->setMethods([])
+                          ->getMock();
 
-        $filesystem->expects($this->any())
-                   ->method('get')
-                   ->will($this->returnValue($content));
+        $vhManager->expects($this->any())
+                  ->method('get')
+                  ->will($this->returnCallback(function ($key) use ($configurations) {
+                      if (key_exists($key, $configurations['apache'])) {
+                          return $configurations['apache'][$key];
+                      }
 
-        $template = new Template($filesystem);
+                      if (key_exists($key, $configurations['defaults'])) {
+                          return $configurations['defaults'][$key];
+                      }
 
-        $template->file($file);
+                      return $configurations;
+                  }));
 
-        $this->assertAttributeEquals($file, 'file', $template);
-        $this->assertAttributeEquals($content, 'content', $template);
-    }
+        // Filesystem\Template setups
 
-    /**
-     * @expectedException \InvalidArgumentException
-     * @expectedExceptionMessage Template file not exist
-     */
-    public function testThrowExceptionIfFileNotExist()
-    {
-        $file = 'path/to/nonexistent/file';
-
-        $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
-                           ->setMethods(['exists'])
-                           ->getMock();
-
-        $filesystem->expects($this->once())
-                   ->method('exists')
-                   ->will($this->returnValue(false));
-
-        $template = new Template($filesystem);
-
-        $template->file($file);
-    }
-
-    public function testGetFileContent()
-    {
-        $content = <<<CONF
-<VirtualHost {{ip}}>
-    ServerAdmin {{server-admin}}
-    ServerName {{server-name}}
-    ServerAlias {{alias}
-    DocumentRoot {{document-root}}
-
-    ErrorLog {{log-path}}/{{server-name}}-error.log
-    CustomLog {log-path}}/{{server-name}}-access.log combined
-
-    <Directory {{document-root}}>
-        Options Indexes FollowSymLinks MultiViews
-        AllowOverride All
-        Require all granted
-    </Directory>
-</VirtualHost>
-CONF;
-
-        $file = 'path/to/nonexistent/file';
-
-        $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
-                           ->setMethods(['exists', 'get'])
-                           ->getMock();
-
-        $filesystem->expects($this->any())
-                   ->method('exists')
-                   ->will($this->returnValue(true));
-
-        $filesystem->expects($this->any())
-                   ->method('get')
-                   ->with($this->equalTo($file))
-                   ->will($this->returnValue($content));
-
-        $template = new Template($filesystem);
-
-        $this->assertEquals($content, $template->content($file));
-    }
-
-    public function testReplaceTagsInContent()
-    {
         $templateContent = <<<TEMPLATE
-<VirtualHost {{ip}}>
-    ServerAdmin {{server-admin}}
+<VirtualHost {{ip}}:{{port}}>
+{!!    ServerAdmin {{server-admin}}!!}
     ServerName {{server-name}}
     ServerAlias {{server-alias}}
     DocumentRoot {{document-root}}
 </VirtualHost>
 TEMPLATE;
 
-        $tags = [
-            'ip'            => '192.168.4.2',
-            'server-name'   => 'marvin.dev',
-            'server-admin'  => 'marvin@emailhost',
-            'server-alias'  => 'www.marvin.dev marvin.local.dev marvin.develop.host',
-            'document-root' => '/home/marvin/site/public',
-            'template-path' => 'path/to/template/file.stub',
-        ];
+        $compiledContent = <<<HOSTCONF
+<VirtualHost 192.168.4.2:8080>
 
-        $expected = <<<EXPEC
-<VirtualHost 192.168.4.2>
-    ServerAdmin marvin@emailhost
     ServerName marvin.dev
     ServerAlias www.marvin.dev marvin.local.dev marvin.develop.host
     DocumentRoot /home/marvin/site/public
 </VirtualHost>
-EXPEC;
+HOSTCONF;
 
-        $host = $this->getMockBuilder('Marvin\Contracts\Host')
-                     ->disableOriginalConstructor()
-                     ->setMethods([])
-                     ->getMock();
 
-        $host->expects($this->any())
-             ->method('get')
-             ->will($this->returnCallback(function ($key) use ($tags) {
-                 if (key_exists($key, $tags)) {
-                     return $tags[$key];
-                 } else {
-                     return $tags;
-                 }
-             }));
+        $templateApacheFile = $configurations['app']['template-dir'] . DIRECTORY_SEPARATOR . 'apache.stub';
+        $fileName           = $configurations['apache']['file-name'];
+        $compiledFileDest   = $configurations['app']['temporary-dir'] . DIRECTORY_SEPARATOR . $fileName;
 
         $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
-                           ->setMethods(['get', 'exists'])
+                           ->setMethods(['get', 'files', 'put'])
                            ->getMock();
 
         $filesystem->expects($this->once())
-                   ->method('get')
-                   ->will($this->returnValue($templateContent))
-                   ->with($this->equalTo($tags['template-path']));
+                   ->method('files')
+                   ->with($this->equalTo($configurations['app']['template-dir']))
+                   ->will($this->returnValue(['apache.stub', 'ngnix.stub']));
 
         $filesystem->expects($this->once())
-                   ->method('exists')
+                   ->method('get')
+                   ->with($this->equalTo($templateApacheFile))
+                   ->will($this->returnValue($templateContent));
+
+        $filesystem->expects($this->once())
+                   ->method('put')
+                   ->with($this->equalTo($compiledFileDest), $this->equalTo($compiledContent))
                    ->will($this->returnValue(true));
 
-        $template = new Template($filesystem);
+        $template = new Template($configRepository, $filesystem);
 
-        $this->assertEquals($expected, $template->compile($host, $tags));
+
+        $this->assertTrue($template->compile($vhManager));
+
     }
+
 
     /**
      * @expectedException \Exception
@@ -221,97 +151,82 @@ EXPEC;
      */
     public function testThrowExceptionIfRequiredTagExistInTemplateButNotInTagsList()
     {
-        $template = 'It is a simple {{tag}} and a {{fake-tag}}';
-
-        $tags = ['tag' => "I'm really tag"];
-
-        $host = $this->getMockBuilder('Marvin\Contracts\Host')
-                     ->disableOriginalConstructor()
-                     ->setMethods([])
-                     ->getMock();
-
-        $host->expects($this->any())
-             ->method('get')
-             ->will($this->returnValue('path/to/template/file.stub'));
-
-        $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
-                           ->setMethods(['get', 'exists'])
-                           ->getMock();
-
-        $filesystem->expects($this->once())
-                   ->method('get')
-                   ->will($this->returnValue($template))
-                   ->with($this->equalTo('path/to/template/file.stub'));
-
-        $filesystem->expects($this->once())
-                   ->method('exists')
-                   ->will($this->returnValue(true));
-
-        $template = new Template($filesystem);
-
-        $template->compile($host, $tags);
-    }
-
-    public function testReplaceOptionalContentAndDeleteIfTagsNotExist()
-    {
-        $templateContent = <<<TEMPLATE
-<VirtualHost {{ip}}{!!:{{port}}!!}>
-{!!    ServerAdmin {{server-admin}}!!}
-    ServerName {{server-name}}
-{!!    ServerAlias {{server-alias}}!!}
-    DocumentRoot {{document-root}}
-</VirtualHost>
-TEMPLATE;
-
-        $tags = [
-            'ip'            => '192.168.4.2',
-            'port'          => '8080',
-            'server-name'   => 'marvin.dev',
-            'server-alias'  => 'www.marvin.dev marvin.local.dev marvin.develop.host',
-            'document-root' => '/home/marvin/site/public',
-            'template-path' => 'path/to/template/file.stub',
+        $configurations = [
+            'app'      => [
+                'template-dir'  => '/app/templates',
+                'temporary-dir' => 'app/temp',
+            ],
+            'apache'   => [
+                'host'          => 'apache',
+                'ip'            => '192.168.4.2',
+                'server-name'   => 'marvin.dev',
+                'server-alias'  => 'www.marvin.dev marvin.local.dev marvin.develop.host',
+                'document-root' => '/home/marvin/site/public',
+                'file-name'     => 'marvin.dev.conf',
+            ],
+            'defaults' => [
+                'port' => '8080',
+            ],
         ];
 
-        $expected = <<<EXPEC
-<VirtualHost 192.168.4.2:8080>
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->setMethods(['get'])
+                                 ->getMock();
 
-    ServerName marvin.dev
-    ServerAlias www.marvin.dev marvin.local.dev marvin.develop.host
-    DocumentRoot /home/marvin/site/public
-</VirtualHost>
-EXPEC;
+        $configRepository->expects($this->any())
+                         ->method('get')
+                         ->with($this->equalTo('app.template-dir'))
+                         ->will($this->returnValue($configurations['app']['template-dir']));
 
 
-        $host = $this->getMockBuilder('Marvin\Contracts\Host')
-                     ->disableOriginalConstructor()
-                     ->setMethods([])
-                     ->getMock();
+        // VHostManager setups
 
-        $host->expects($this->any())
-             ->method('get')
-             ->will($this->returnCallback(function ($key) use ($tags) {
-                 if (key_exists($key, $tags)) {
-                     return $tags[$key];
-                 } else {
-                     return $tags;
-                 }
-             }));
+        $vhManager = $this->getMockBuilder('Marvin\Contracts\HostManager')
+                          ->setMethods([])
+                          ->getMock();
+
+        $vhManager->expects($this->any())
+                  ->method('get')
+                  ->will($this->returnCallback(function ($key) use ($configurations) {
+                      if (key_exists($key, $configurations['apache'])) {
+                          return $configurations['apache'][$key];
+                      }
+
+                      if (key_exists($key, $configurations['defaults'])) {
+                          return $configurations['defaults'][$key];
+                      }
+
+                      return $configurations;
+                  }));
+
+
+        // Filesystem\Template setups
+
+        $templateApacheFile = $configurations['app']['template-dir'] . DIRECTORY_SEPARATOR . 'apache.stub';
+        $fileName           = $configurations['apache']['file-name'];
+        $compiledFileDest   = $configurations['app']['temporary-dir'] . DIRECTORY_SEPARATOR . $fileName;
+        $templateContent    = 'They are a simple {{tag}} and a {{fake-tag}}';
+
 
         $filesystem = $this->getMockBuilder('Marvin\Filesystem\Filesystem')
-                           ->setMethods(['get', 'exists'])
+                           ->setMethods(['get', 'files'])
                            ->getMock();
 
         $filesystem->expects($this->once())
-                   ->method('get')
-                   ->will($this->returnValue($templateContent))
-                   ->with($this->equalTo($tags['template-path']));
+                   ->method('files')
+                   ->with($this->equalTo($configurations['app']['template-dir']))
+                   ->will($this->returnValue(['apache.stub', 'ngnix.stub']));
 
         $filesystem->expects($this->once())
-                   ->method('exists')
-                   ->will($this->returnValue(true));
+                   ->method('get')
+                   ->with($this->equalTo($templateApacheFile))
+                   ->will($this->returnValue($templateContent));
 
-        $template = new Template($filesystem);
 
-        $this->assertEquals($expected, $template->compile($host, $tags));
+        $template = new Template($configRepository, $filesystem);
+
+
+        $this->assertTrue($template->compile($vhManager));
     }
+
 }

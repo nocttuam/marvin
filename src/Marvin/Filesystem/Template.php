@@ -1,12 +1,13 @@
 <?php
 namespace Marvin\Filesystem;
 
-use Marvin\Contracts\Host;
+use Marvin\Contracts\HostManager;
+use Marvin\Config\Repository as ConfigRepository;
 
 class Template
 {
     /**
-     * @var Host
+     * @var HostManager
      */
     protected $host;
 
@@ -16,117 +17,99 @@ class Template
     protected $filesystem;
 
     /**
-     * Template path
-     *
-     * @var string
+     * @var \Marvin\Contracts\HostManager
      */
-    protected $file;
+    protected $hostManager;
 
     /**
-     * Template content
+     * Template directory
      *
      * @var string
      */
-    protected $content;
+    protected $templateDir;
 
     /**
      * Template constructor.
      *
-     * @param Filesystem $filesystem
+     * @param ConfigRepository $configRepository
+     * @param Filesystem       $filesystem
      */
-    public function __construct(Filesystem $filesystem)
+    public function __construct(ConfigRepository $configRepository, Filesystem $filesystem)
     {
-        $this->filesystem = $filesystem;
+        $this->filesystem       = $filesystem;
+        $this->configRepository = $configRepository;
     }
 
-    /**
-     * Set template file path and template content.
-     *
-     * @param $file
-     *
-     * @throws \Illuminate\Contracts\Filesystem\FileNotFoundException
-     */
-    public function file($file)
-    {
-        if ( ! $this->filesystem->exists($file)) {
-            throw new \InvalidArgumentException('Template file not exist');
-        }
-        $this->file    = $file;
-        $this->content = $this->filesystem->get($file);
-    }
-
-    /**
-     * Get content in template file
-     *
-     * @param null $file
-     *
-     * @return string
-     */
-    public function content($file = null)
-    {
-        if ( ! is_null($file)) {
-            $this->file($file);
-        }
-
-        return $this->content;
-    }
 
     /**
      * Build new content replacing tags in template content
      * Return final content
      *
-     * @param Host  $host
-     * @param array $tags
+     * @param HostManager $hostManager
      *
      * @return string
      */
-    public function compile(Host $host, array $tags)
+    public function compile(HostManager $hostManager)
     {
-        $this->setHost($host);
-        $content = $this->content();
-        $content = $this->parseOptionalTags($tags, $content);
-        $content = $this->parseRequiredTags($tags, $content);
+        $this->hostManager = $hostManager;
+        $this->templateDir = $this->configRepository->get('app.template-dir');
+        $content           = $this->getTemplateContent($this->hostManager->get('host'));
+        $content           = $this->parseOptionalTags($content);
+        $content           = $this->parseRequiredTags($content);
+        $temporaryDir      = $this->configRepository->get('app.temporary-dir');
+        $dest              = $temporaryDir . DIRECTORY_SEPARATOR . $this->hostManager->get('file-name');
+        $result            = $this->filesystem->put($dest, $content);
+
+        return $result;
+    }
+
+    /**
+     * Get content in template file
+     * Using name of the host search template file.
+     *
+     * @param $hostName
+     *
+     * @return string
+     */
+    protected function getTemplateContent($hostName)
+    {
+        $files   = $this->filesystem->files($this->templateDir);
+        $content = '';
+        array_walk($files, function ($file) use ($hostName, &$content) {
+            if (preg_match('/' . $hostName . '/', $file)) {
+                $content = $this->filesystem->get($this->templateDir . DIRECTORY_SEPARATOR . $file);
+            }
+        });
 
         return $content;
     }
 
-    /**
-     * Set Host with is calling a Template instance
-     *
-     * @param Host $host
-     */
-    protected function setHost(Host $host)
-    {
-        $this->host = $host;
-        $this->file($this->host->get('template-path'));
-    }
 
     /**
      * Search and replace optional tags.
      * Delete wrap content if optional tag is not exist.
      *
-     * @param array $tags
-     * @param       $content
+     * @param $content
      *
      * @return mixed
      */
-    protected function parseOptionalTags(array $tags, $content)
+    protected function parseOptionalTags($content)
     {
         $wraps = ['{!!', '!!}', '{{', '}}'];
 
         return preg_replace_callback(
             '/[{]{1}[!]{2}(.*)({{)(.+)(}})(.*)[!]{2}[}]{1}/',
-            function ($input) use ($tags, $wraps) {
+            function ($input) use ($wraps) {
                 $key     = $input[3];
                 $content = $input[0];
+                $value   = $this->hostManager->get($key);
                 $output  = '';
-                if (key_exists($key, $tags)) {
-                    $output = str_replace($key, $tags[$key], $content);
+                if ( ! is_array($value)) {
+                    $output = str_replace($key, $value, $content);
                     $output = str_replace($wraps, "", $output);
                 }
 
                 return $output;
-
             },
             $content
         );
@@ -136,24 +119,25 @@ class Template
      * Search and replace required tags.
      * Throw exception if tag is not in array $tags.
      *
-     * @param array $tags
-     * @param       $content
+     * @param $content
      *
      * @throws \Exception
      *
      * @return mixed
      */
-    protected function parseRequiredTags(array $tags, $content)
+    protected function parseRequiredTags($content)
     {
         return preg_replace_callback(
             '/[{]{2}([A-Za-z-]+)[}]{2}/',
-            function ($input) use ($tags) {
+            function ($input) {
                 $key = $input[1];
-                if ( ! key_exists($key, $tags)) {
+
+                $value = $this->hostManager->get($key);
+                if (is_array($value)) {
                     throw new \Exception($key . ' is not a valid tag in template file.');
                 }
 
-                return $tags[$key];
+                return $value;
             },
             $content
         );
