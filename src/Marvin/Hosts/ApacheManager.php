@@ -6,7 +6,7 @@ use Marvin\Contracts\Execute;
 use Marvin\Filesystem\Template;
 use Marvin\Config\Repository as ConfigRepository;
 
-class Apache implements Host
+class ApacheManager implements Host
 {
     /**
      * @var ConfigRepository
@@ -22,6 +22,9 @@ class Apache implements Host
      * @var Execute
      */
     protected $execute;
+
+
+    protected $host = 'apache';
 
 
     /**

@@ -1,7 +1,7 @@
 <?php
 namespace Marvin\Contracts;
 
-interface Host
+interface HostManager
 {
 
     /**
