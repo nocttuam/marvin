@@ -1,7 +1,7 @@
 <?php
 namespace Marvin\Shell\Apache;
 
-use Marvin\Contracts\Host;
+use Marvin\Contracts\HostManager;
 use Marvin\Contracts\Execute as ExecuteInterface;
 use Marvin\Config\Repository as ConfigRepository;
 
@@ -10,32 +10,61 @@ class Execute implements ExecuteInterface
     /**
      * @var ConfigRepository
      */
-    protected $host;
+    protected $configRepository;
+
+    /**
+     * @var ConfigRepository
+     */
+    protected $hostManager;
+
+    /**
+     * Path to temporary directory use in aplication
+     *
+     * @var string
+     */
+    protected $temporaryDir;
+
+    /**
+     * Name of the configurations file generated
+     *
+     * @var string
+     */
+    protected $fileName;
+
+    /**
+     * Execute constructor.
+     *
+     * @param ConfigRepository $configRepository
+     */
+    public function __construct(ConfigRepository $configRepository)
+    {
+        $this->configRepository = $configRepository;
+        $this->temporaryDir     = $configRepository->get('app.temporary-dir');
+    }
 
     /**
      * Set the Virtual Host Manager
      *
-     * @param Host $host
+     * @param HostManager $hostManager
      */
-    public function setHost(Host $host)
+    public function setHostManager(HostManager $hostManager)
     {
-        $this->host = $host;
+        $this->hostManager = $hostManager;
+        $this->fileName    = $this->hostManager->get('file-name');
+
     }
 
     /**
      * Move configuration file to Apache configurations directory
      *
-     * @param string $file
-     *
      * @return string
      */
-    public function moveConfig($file)
+    public function moveConfig()
     {
-        $apachePath = $this->host->get('apache-path');
-        $temp       = $this->host->get('temp-directory');
+        $configSysDir = $this->hostManager->get('config-sys-dir');
 
-        $origin  = $temp . DIRECTORY_SEPARATOR . $file;
-        $destiny = $apachePath . DIRECTORY_SEPARATOR . 'sites-available';
+        $origin  = $this->temporaryDir . DIRECTORY_SEPARATOR . $this->fileName;
+        $destiny = $configSysDir . DIRECTORY_SEPARATOR . 'sites-available';
 
         return shell_exec('sudo mv -v ' . $origin . ' ' . $destiny);
     }
@@ -43,13 +72,11 @@ class Execute implements ExecuteInterface
     /**
      * Run command a2ensite to enable new host
      *
-     * @param string $file
-     *
      * @return mixed
      */
-    public function enable($file)
+    public function enable()
     {
-        return shell_exec('sudo a2ensite ' . $file);
+        return shell_exec('sudo a2ensite ' . $this->fileName);
     }
 
     /**

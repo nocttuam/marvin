@@ -6,9 +6,9 @@ interface Execute
     /**
      * Set the Virtual Host Manager
      *
-     * @param Host $host
+     * @param HostManager $hostManager
      */
-    public function setHost(Host $host);
+    public function setHostManager(HostManager $hostManager);
 
     /**
      * Move configuration file to Apache configurations directory

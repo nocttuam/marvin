@@ -1,12 +1,12 @@
 <?php
 namespace Marvin\Hosts;
 
-use Marvin\Contracts\Host;
+use Marvin\Contracts\HostManager;
 use Marvin\Contracts\Execute;
 use Marvin\Filesystem\Template;
 use Marvin\Config\Repository as ConfigRepository;
 
-class ApacheManager implements Host
+class ApacheManager implements HostManager
 {
     /**
      * @var ConfigRepository
@@ -204,7 +204,7 @@ class ApacheManager implements Host
         $defaults = $this->configRepository->get('defaults');
         $tags     = array_merge($defaults, $apache);
 
-        return $this->template->compile($this, $tags);
+        return $this->template->compile($this);
     }
 
     /**
@@ -216,7 +216,7 @@ class ApacheManager implements Host
      */
     public function execute(Execute $execute)
     {
-        $execute->setHost($this);
+        $execute->setHostManager($this);
         return $execute;
     }
 }

@@ -36,7 +36,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                          ->setMethods(null)
                          ->getMock();
 
-        $vhManager = new Apache($configRepository, $template);
+        $vhManager = new ApacheManager($configRepository, $template);
 
         $this->assertAttributeInstanceOf('Marvin\Config\Repository', 'configRepository', $vhManager);
         $this->assertAttributeInstanceOf('Marvin\Filesystem\Template', 'template', $vhManager);
@@ -64,7 +64,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                              $configurations[$key] = $value;
                          }));
 
-        $vhManager = new Apache($configRepository, $this->template);
+        $vhManager = new ApacheManager($configRepository, $this->template);
 
         $vhManager->setIP($ip);
         $vhManager->setPort($port);
@@ -79,7 +79,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
      */
     public function testThrowExceptionIfIpIsInvalid()
     {
-        $vhManager = new Apache($this->configRepository, $this->template);
+        $vhManager = new ApacheManager($this->configRepository, $this->template);
 
         $vhManager->setIP('42.42.42');
     }
@@ -105,7 +105,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                              $configurations[$key] = $value;
                          }));
 
-        $vhManager = new Apache($configRepository, $this->template);
+        $vhManager = new ApacheManager($configRepository, $this->template);
 
         $vhManager->setServerName($serverName);
 
@@ -138,7 +138,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                              $configurations[$key] = $value;
                          }));
 
-        $vhManager = new Apache($configRepository, $this->template);
+        $vhManager = new ApacheManager($configRepository, $this->template);
 
         $vhManager->setServerAlias($alias);
 
@@ -165,7 +165,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                              $configurations[$key] = $value;
                          }));
 
-        $vhManager = new Apache($configRepository, $this->template);
+        $vhManager = new ApacheManager($configRepository, $this->template);
 
         $vhManager->setFileName($name);
         $this->assertEquals($expected, $configurations['apache.file-name']);
@@ -207,7 +207,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                          }));
 
 
-        $vhManager = new Apache($configRepository, $this->template);
+        $vhManager = new ApacheManager($configRepository, $this->template);
 
         $vhManager->setDocumentRoot($documentRoot);
         $vhManager->setLogDir($logDir);
@@ -238,7 +238,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                          }));
 
 
-        $vhManager = new Apache($configRepository, $this->template);
+        $vhManager = new ApacheManager($configRepository, $this->template);
 
         $vhManager->setServerAdmin($serverAdmin);
 
@@ -284,7 +284,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                          ->method('all')
                          ->will($this->returnValue($configurations));
 
-        $vhManager = new Apache($configRepository, $this->template);
+        $vhManager = new ApacheManager($configRepository, $this->template);
 
         $this->assertEquals($configurations['apache']['ip'], $vhManager->get('ip'));
         $this->assertEquals($configurations['default']['ip'], $vhManager->get('ip', true));
@@ -307,16 +307,6 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                 'ip'   => '192.168.42.42',
                 'port' => '8080',
             ],
-        ];
-
-        $expectedTags = [
-            'ip'            => '192.168.4.2',
-            'port'          => '8080',
-            'server-name'   => 'marvin.dev',
-            'document-root' => '/home/marvin/app/public',
-            'log-dir'       => '${APACHE_LOG_DIR}',
-            'file-name'     => 'marvin.dev.conf',
-            'id'            => md5('marvin.dev'),
         ];
 
         // Config\Repository Mock
@@ -371,12 +361,12 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                          ->getMock();
 
         // Virtual Host Manager Instance
-        $vhManager = new Apache($configRepository, $template);
+        $vhManager = new ApacheManager($configRepository, $template);
 
         // Template method
         $template->expects($this->once())
                  ->method('compile')
-                 ->with($this->identicalTo($vhManager), $this->equalTo($expectedTags))
+                 ->with($this->identicalTo($vhManager))
                  ->will($this->returnValue(true));
 
 
@@ -395,10 +385,10 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                         ->setMethods([])
                         ->getMock();
 
-        $vhManager = new Apache($this->configRepository, $this->template);
+        $vhManager = new ApacheManager($this->configRepository, $this->template);
 
         $execute->expects($this->once())
-                ->method('setHost')
+                ->method('setHostManager')
                 ->with($this->identicalTo($vhManager));
 
         $this->assertInstanceOf('Marvin\Contracts\Execute', $vhManager->execute($execute));

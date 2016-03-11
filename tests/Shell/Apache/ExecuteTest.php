@@ -27,62 +27,164 @@ function shell_exec($command)
 
 class ExecuteTest extends \PHPUnit_Framework_TestCase
 {
-    protected $configRepository;
+//    protected $configRepository;
+//
+//    public function setUp()
+//    {
+//        $this->configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+//                                       ->disableOriginalConstructor()
+//                                       ->setMethods(null)
+//                                       ->getMock();
+//    }
 
-    public function setUp()
+    public function testSetInitialParametersCorrectly()
     {
-        $this->configRepository = $this->getMockBuilder('Marvin\Config\Repository')
-                                       ->disableOriginalConstructor()
-                                       ->setMethods(null)
-                                       ->getMock();
+        $temporaryDir = 'app/temp';
+
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->setMethods(['get'])
+                                 ->getMock();
+
+        $configRepository->expects($this->once())
+                         ->method('get')
+                         ->with($this->equalTo('app.temporary-dir'))
+                         ->will($this->returnValue($temporaryDir));
+
+        $execute = new Execute($configRepository);
+
+        $this->assertAttributeInstanceOf(
+            'Marvin\Config\Repository',
+            'configRepository',
+            $execute
+        );
+
+        $this->assertAttributeEquals(
+            $temporaryDir,
+            'temporaryDir',
+            $execute
+        );
     }
 
-    public function testShouldSetHostInstanceToUse()
+    public function testShouldSetParametersToUseInObject()
     {
-        $vhManager = $this->getMockBuilder('Marvin\Contracts\Host')
+        $fileName = 'marvin.dev.conf';
+
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->setMethods(null)
+                                 ->getMock();
+
+        $vhManager = $this->getMockBuilder('Marvin\Contracts\HostManager')
                           ->disableOriginalConstructor()
                           ->setMethods([])
                           ->getMock();
 
-        $execute = new Execute();
+        $vhManager->expects($this->once())
+                  ->method('get')
+                  ->with($this->equalTo('file-name'))
+                  ->will($this->returnValue($fileName));
 
-        $execute->setHost($vhManager);
+        $execute = new Execute($configRepository);
 
-        $this->assertAttributeInstanceOf('Marvin\Contracts\Host', 'host', $execute);
+        $execute->setHostManager($vhManager);
+
+        $this->assertAttributeInstanceOf('Marvin\Contracts\HostManager', 'hostManager', $execute);
+        $this->assertAttributeEquals($fileName, 'fileName', $execute);
 
     }
 
     public function testMoveConfigFileToApacheConfigDirectory()
     {
-        $vhManager = $this->getMockBuilder('Marvin\Contracts\Host')
-                          ->disableOriginalConstructor()
+        $temporaryDir = 'app/tmp';
+
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->setMethods(['get'])
+                                 ->getMock();
+
+        $configRepository->expects($this->once())
+                         ->method('get')
+                         ->with($this->equalTo('app.temporary-dir'))
+                         ->will($this->returnValue($temporaryDir));
+
+
+        $vhManager = $this->getMockBuilder('Marvin\Contracts\HostManager')
                           ->setMethods([])
                           ->getMock();
 
         $vhManager->expects($this->exactly(2))
                   ->method('get')
-                  ->withConsecutive(['apache-path'], ['temp-directory'])
-                  ->will($this->onConsecutiveCalls('/etc/apache2', '/Marvin/app/tmp'));
+                  ->withConsecutive(
+                      [$this->equalTo('file-name')],
+                      [$this->equalTo('config-sys-dir')]
+                  )
+                  ->will($this->returnValueMap([
+                      ['file-name', 'marvin.dev.conf'],
+                      ['config-sys-dir', '/etc/apache2'],
+                  ]));
 
-        $execute = new Execute();
-        $execute->setHost($vhManager);
+        $execute = new Execute($configRepository);
+        $execute->setHostManager($vhManager);
 
         $this->assertRegExp(
-            '/sudo mv -v \/Marvin\/app\/tmp\/marvin.host.conf \/etc\/apache2\/sites-available/',
-            $execute->moveConfig('marvin.host.conf')
+            '/sudo mv -v app\/tmp\/marvin.dev.conf \/etc\/apache2\/sites-available/',
+            $execute->moveConfig()
         );
+
+
     }
 
     public function testShouldEnableApacheServer()
     {
-        $execute = new Execute();
-        $this->assertRegExp('/Enabled Success/', $execute->enable('marvin.host.conf'));
-        $this->assertRegExp('/sudo a2ensite marvin.host.conf/', $execute->enable('marvin.host.conf'));
+        $temporaryDir = 'app/tmp';
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                ->setMethods(['get'])
+                                ->getMock();
+
+        $configRepository->expects($this->once())
+                         ->method('get')
+                         ->with($this->equalTo('app.temporary-dir'))
+                         ->will($this->returnValue($temporaryDir));
+
+        $vhManager = $this->getMockBuilder('Marvin\Contracts\HostManager')
+                          ->setMethods([])
+                          ->getMock();
+
+        $vhManager->expects($this->once())
+                  ->method('get')
+                  ->with($this->equalTo('file-name'))
+                  ->will($this->returnValue('marvin.dev.conf'));
+
+        $execute = new Execute($configRepository);
+        $execute->setHostManager($vhManager);
+
+
+        $this->assertRegExp('/Enabled Success/', $execute->enable());
+        $this->assertRegExp('/sudo a2ensite marvin.dev.conf/', $execute->enable());
     }
 
     public function testShouldRestartApacheServer()
     {
-        $execute = new Execute();
+        $temporaryDir = 'app/tmp';
+        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
+                                 ->setMethods(['get'])
+                                 ->getMock();
+
+        $configRepository->expects($this->once())
+                         ->method('get')
+                         ->with($this->equalTo('app.temporary-dir'))
+                         ->will($this->returnValue($temporaryDir));
+
+        $vhManager = $this->getMockBuilder('Marvin\Contracts\HostManager')
+                          ->setMethods([])
+                          ->getMock();
+
+        $vhManager->expects($this->once())
+                  ->method('get')
+                  ->with($this->equalTo('file-name'))
+                  ->will($this->returnValue('marvin.dev.conf'));
+
+        $execute = new Execute($configRepository);
+        $execute->setHostManager($vhManager);
+
         $this->assertRegExp('/Restart Success/', $execute->restart());
         $this->assertRegExp('/sudo service apache2 reload/', $execute->restart());
     }
