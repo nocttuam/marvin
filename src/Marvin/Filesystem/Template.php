@@ -53,12 +53,16 @@ class Template
     {
         $this->hostManager = $hostManager;
         $this->templateDir = $this->configRepository->get('app.template-dir');
-        $content           = $this->getTemplateContent($this->hostManager->get('host'));
-        $content           = $this->parseOptionalTags($content);
-        $content           = $this->parseRequiredTags($content);
-        $temporaryDir      = $this->configRepository->get('app.temporary-dir');
-        $dest              = $temporaryDir . DIRECTORY_SEPARATOR . $this->hostManager->get('file-name');
-        $result            = $this->filesystem->put($dest, $content);
+
+        $content = $this->getTemplateContent($this->hostManager->get('host'));
+        $content = $this->parseOptionalTags($content);
+        $content = $this->parseRequiredTags($content);
+        $content = $this->addID($content);
+
+        $temporaryDir = $this->configRepository->get('app.temporary-dir');
+        $dest         = $temporaryDir . DIRECTORY_SEPARATOR . $this->hostManager->get('file-name');
+
+        $result = $this->filesystem->put($dest, $content);
 
         return $result;
     }
@@ -141,5 +145,16 @@ class Template
             },
             $content
         );
+    }
+
+    protected function addID($content)
+    {
+        $id        = $this->hostManager->get('id');
+        $finalLine = '# Created by Marvin // ID: ' . $id;
+
+        $content .= PHP_EOL . PHP_EOL;
+        $content .= $finalLine . PHP_EOL;
+
+        return $content;
     }
 }

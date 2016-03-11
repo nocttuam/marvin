@@ -36,6 +36,9 @@ class TemplateTest extends \PHPUnit_Framework_TestCase
 
     public function testCompileNewConfigurationsFileAndReturnResult()
     {
+        $serverName     = 'marvin.dev';
+        $id             = md5($serverName);
+
         $configurations = [
             'app'      => [
                 'template-dir'  => '/app/templates',
@@ -43,8 +46,9 @@ class TemplateTest extends \PHPUnit_Framework_TestCase
             ],
             'apache'   => [
                 'host'          => 'apache',
+                'id'            => $id,
                 'ip'            => '192.168.4.2',
-                'server-name'   => 'marvin.dev',
+                'server-name'   => $serverName,
                 'server-alias'  => 'www.marvin.dev marvin.local.dev marvin.develop.host',
                 'document-root' => '/home/marvin/site/public',
                 'file-name'     => 'marvin.dev.conf',
@@ -111,6 +115,9 @@ TEMPLATE;
     ServerAlias www.marvin.dev marvin.local.dev marvin.develop.host
     DocumentRoot /home/marvin/site/public
 </VirtualHost>
+
+# Created by Marvin // ID: {$id}
+
 HOSTCONF;
 
 
@@ -203,8 +210,6 @@ HOSTCONF;
         // Filesystem\Template setups
 
         $templateApacheFile = $configurations['app']['template-dir'] . DIRECTORY_SEPARATOR . 'apache.stub';
-        $fileName           = $configurations['apache']['file-name'];
-        $compiledFileDest   = $configurations['app']['temporary-dir'] . DIRECTORY_SEPARATOR . $fileName;
         $templateContent    = 'They are a simple {{tag}} and a {{fake-tag}}';
 
 
