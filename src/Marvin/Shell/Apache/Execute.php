@@ -55,21 +55,6 @@ class Execute implements ExecuteInterface
     }
 
     /**
-     * Move configuration file to Apache configurations directory
-     *
-     * @return string
-     */
-    public function moveConfig()
-    {
-        $configSysDir = $this->hostManager->get('config-sys-dir');
-
-        $origin  = $this->temporaryDir . DIRECTORY_SEPARATOR . $this->fileName;
-        $destiny = $configSysDir . DIRECTORY_SEPARATOR . 'sites-available';
-
-        return shell_exec('sudo mv -v ' . $origin . ' ' . $destiny);
-    }
-
-    /**
      * Run command a2ensite to enable new host
      *
      * @return mixed

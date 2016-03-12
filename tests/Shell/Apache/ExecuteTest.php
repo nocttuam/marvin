@@ -92,46 +92,6 @@ class ExecuteTest extends \PHPUnit_Framework_TestCase
 
     }
 
-    public function testMoveConfigFileToApacheConfigDirectory()
-    {
-        $temporaryDir = 'app/tmp';
-
-        $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
-                                 ->setMethods(['get'])
-                                 ->getMock();
-
-        $configRepository->expects($this->once())
-                         ->method('get')
-                         ->with($this->equalTo('app.temporary-dir'))
-                         ->will($this->returnValue($temporaryDir));
-
-
-        $vhManager = $this->getMockBuilder('Marvin\Contracts\HostManager')
-                          ->setMethods([])
-                          ->getMock();
-
-        $vhManager->expects($this->exactly(2))
-                  ->method('get')
-                  ->withConsecutive(
-                      [$this->equalTo('file-name')],
-                      [$this->equalTo('config-sys-dir')]
-                  )
-                  ->will($this->returnValueMap([
-                      ['file-name', 'marvin.dev.conf'],
-                      ['config-sys-dir', '/etc/apache2'],
-                  ]));
-
-        $execute = new Execute($configRepository);
-        $execute->setHostManager($vhManager);
-
-        $this->assertRegExp(
-            '/sudo mv -v app\/tmp\/marvin.dev.conf \/etc\/apache2\/sites-available/',
-            $execute->moveConfig()
-        );
-
-
-    }
-
     public function testShouldEnableApacheServer()
     {
         $temporaryDir = 'app/tmp';

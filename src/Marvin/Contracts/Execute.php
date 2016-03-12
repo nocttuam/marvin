@@ -11,11 +11,6 @@ interface Execute
     public function setHostManager(HostManager $hostManager);
 
     /**
-     * Move configuration file to Apache configurations directory
-     */
-    public function moveConfig();
-
-    /**
      * Run command to enable new host
      */
     public function enable();
