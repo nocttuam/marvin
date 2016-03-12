@@ -1,11 +1,13 @@
 <?php
-namespace Marvin\Filesystem;
+namespace Marvin\Hosts;
+
 
 use Marvin\Contracts\HostManager;
 use Marvin\Config\Repository as ConfigRepository;
+use Marvin\Filesystem\Filesystem;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 
-class HostsFileManager
+class EtcHostsManager
 {
     /**
      * Path for the hosts file.
@@ -102,7 +104,7 @@ class HostsFileManager
         $newContent = $this->buildNewFileContent($content, $section, $new);
 
         $tempFile = $this->tempDir . DIRECTORY_SEPARATOR . 'hosts';
-        $result = $this->filesystem->put($tempFile, $newContent);
+        $result   = $this->filesystem->put($tempFile, $newContent);
 
         return $result;
     }
@@ -136,10 +138,11 @@ class HostsFileManager
 
     protected function buildNewFileContent($content, $section, $new)
     {
-        if (! $new) {
+        if ( ! $new) {
             return preg_replace('/(' . $this->sectionWrap['init'] . ')(.*)(' . $this->sectionWrap['end'] . ')/s',
                 $section, $content);
         }
+
         return $content . PHP_EOL . PHP_EOL . $section;
     }
 }

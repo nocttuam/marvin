@@ -1,11 +1,7 @@
 <?php
-namespace Marvin\Filesystem;
+namespace Marvin\Hosts;
 
-use Illuminate\Contracts\Filesystem\FileNotFoundException;
-use Marvin\Filesystem\HostsFileManager;
-use Marvin\Filesystem\Filesystem;
-
-class HostsFileManagerTest extends \PHPUnit_Framework_TestCase
+class EtcHostsManagerTest extends \PHPUnit_Framework_TestCase
 {
 
     public function testSetInitialParametersCorrectly()
@@ -34,7 +30,7 @@ class HostsFileManagerTest extends \PHPUnit_Framework_TestCase
                              return $tempDir;
                          }));
 
-        $hostsFileManager = new HostsFileManager($filesystem, $configRepository);
+        $hostsFileManager = new EtcHostsManager($filesystem, $configRepository);
 
         $this->assertAttributeInstanceOf(
             'Marvin\Filesystem\Filesystem',
@@ -95,7 +91,7 @@ class HostsFileManagerTest extends \PHPUnit_Framework_TestCase
                              return $tempDir;
                          }));
 
-        $hostsFileManager = new HostsFileManager($filesystem, $configRepository);
+        $hostsFileManager = new EtcHostsManager($filesystem, $configRepository);
 
         $this->assertEquals($content, $hostsFileManager->getContent());
     }
@@ -150,7 +146,7 @@ SECTION;
                              return $tempDir;
                          }));
 
-        $hostsFileManager = new HostsFileManager($filesystem, $configRepository);
+        $hostsFileManager = new EtcHostsManager($filesystem, $configRepository);
         $return           = $hostsFileManager->getSection();
 
         $this->assertEquals($section, $return['all']);
@@ -182,7 +178,7 @@ SECTION;
                              return $tempDir;
                          }));
 
-        $hostsFileManager = new HostsFileManager($filesystem, $configRepository);
+        $hostsFileManager = new EtcHostsManager($filesystem, $configRepository);
 
         $this->assertFalse($hostsFileManager->getSection());
     }
@@ -285,7 +281,7 @@ HOSTS;
                       return $hostConfigs;
                   }));
 
-        $hostsFileManager = new HostsFileManager($filesystem, $configRepository);
+        $hostsFileManager = new EtcHostsManager($filesystem, $configRepository);
 
         $result = $hostsFileManager->addHost($vhManager);
 
@@ -392,7 +388,7 @@ HOSTS;
                       return $hostConfigs;
                   }));
 
-        $hostsFileManager = new HostsFileManager($filesystem, $configRepository);
+        $hostsFileManager = new EtcHostsManager($filesystem, $configRepository);
 
         $result = $hostsFileManager->addHost($vhManager);
 
