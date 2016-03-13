@@ -1,0 +1,15 @@
+<VirtualHost {{ip}}:{{port}}>
+    ServerName {{server-name}}
+{!! ServerAdmin {{server-admin}}!!}
+{!! ServerAlias {{alias}}!!}
+    DocumentRoot {{document-root}}
+
+    ErrorLog {{log-dir}}{{server-name}}-error.log
+    CustomLog {{log-dir}}{{server-name}}-access.log combined
+
+    <Directory {{document-root}}>
+        Options Indexes FollowSymLinks MultiViews
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
