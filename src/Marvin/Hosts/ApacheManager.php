@@ -37,6 +37,7 @@ class ApacheManager implements HostManager
     {
         $this->configRepository = $configRepository;
         $this->template         = $template;
+        $this->configRepository->set('apache.host', $this->host);
     }
 
 

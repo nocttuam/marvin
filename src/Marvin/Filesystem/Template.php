@@ -52,7 +52,7 @@ class Template
     public function compile(HostManager $hostManager)
     {
         $this->hostManager = $hostManager;
-        $this->templateDir = $this->configRepository->get('app.template-dir');
+        $this->templateDir = $this->configRepository->get('app.templates-dir');
 
         $content = $this->getTemplateContent($this->hostManager->get('host'));
         $content = $this->parseOptionalTags($content);
@@ -81,7 +81,7 @@ class Template
         $content = '';
         array_walk($files, function ($file) use ($hostName, &$content) {
             if (preg_match('/' . $hostName . '/', $file)) {
-                $content = $this->filesystem->get($this->templateDir . DIRECTORY_SEPARATOR . $file);
+                $content = $this->filesystem->get($file);
             }
         });
 

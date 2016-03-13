@@ -27,16 +27,6 @@ function shell_exec($command)
 
 class ExecuteTest extends \PHPUnit_Framework_TestCase
 {
-//    protected $configRepository;
-//
-//    public function setUp()
-//    {
-//        $this->configRepository = $this->getMockBuilder('Marvin\Config\Repository')
-//                                       ->disableOriginalConstructor()
-//                                       ->setMethods(null)
-//                                       ->getMock();
-//    }
-
     public function testSetInitialParametersCorrectly()
     {
         $temporaryDir = 'app/temp';

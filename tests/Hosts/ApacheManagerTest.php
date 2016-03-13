@@ -1,9 +1,7 @@
 <?php
 namespace Marvin\Hosts;
 
-use Marvin\Filesystem\Filesystem;
-
-class ApacheTest extends \PHPUnit_Framework_TestCase
+class ApacheManagerTest extends \PHPUnit_Framework_TestCase
 {
     protected $configRepository;
 
@@ -28,8 +26,12 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
     public function testSetDependenciesCorrectly()
     {
         $configRepository = $this->getMockBuilder('Marvin\Config\Repository')
-                                 ->setMethods(null)
+                                 ->setMethods(['set'])
                                  ->getMock();
+
+        $configRepository->expects($this->once())
+                         ->method('set')
+                         ->with($this->equalTo('apache.host'), $this->equalTo('apache'));
 
         $template = $this->getMockBuilder('Marvin\Filesystem\Template')
                          ->disableOriginalConstructor()
@@ -40,6 +42,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
 
         $this->assertAttributeInstanceOf('Marvin\Config\Repository', 'configRepository', $vhManager);
         $this->assertAttributeInstanceOf('Marvin\Filesystem\Template', 'template', $vhManager);
+        $this->assertAttributeEquals('apache', 'host', $vhManager);
     }
 
     public function testShouldSetIPAndPortCorrectly()
@@ -54,9 +57,10 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                                  ->setMethods(['set'])
                                  ->getMock();
 
-        $configRepository->expects($this->exactly(2))
+        $configRepository->expects($this->exactly(3))
                          ->method('set')
                          ->withConsecutive(
+                             [$this->equalTo('apache.host'), $this->equalTo('apache')],
                              [$this->equalTo('apache.ip'), $this->equalTo($ip)],
                              [$this->equalTo('apache.port'), $this->equalTo($port)]
                          )
@@ -95,9 +99,10 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                                  ->setMethods(['set'])
                                  ->getMock();
 
-        $configRepository->expects($this->exactly(2))
+        $configRepository->expects($this->exactly(3))
                          ->method('set')
                          ->withConsecutive(
+                             [$this->equalTo('apache.host'), $this->equalTo('apache')],
                              [$this->equalTo('apache.id'), $this->equalTo($expected)],
                              [$this->equalTo('apache.server-name'), $this->equalTo($serverName)]
                          )
@@ -131,9 +136,12 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
                                  ->setMethods(['set'])
                                  ->getMock();
 
-        $configRepository->expects($this->once())
+        $configRepository->expects($this->any())
                          ->method('set')
-                         ->with($this->equalTo('apache.server-alias'), $this->equalTo($expected))
+                         ->withConsecutive(
+                             [$this->equalTo('apache.host'), $this->equalTo('apache')],
+                             [$this->equalTo('apache.server-alias'), $this->equalTo($expected)]
+                         )
                          ->will($this->returnCallback(function ($key, $value) use (&$configurations) {
                              $configurations[$key] = $value;
                          }));
@@ -160,7 +168,10 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
 
         $configRepository->expects($this->any())
                          ->method('set')
-                         ->with($this->equalTo('apache.file-name'), $this->equalTo($expected))
+                         ->withConsecutive(
+                             [$this->equalTo('apache.host'), $this->equalTo('apache')],
+                             [$this->equalTo('apache.file-name'), $this->equalTo($expected)]
+                         )
                          ->will($this->returnCallback(function ($key, $value) use (&$configurations) {
                              $configurations[$key] = $value;
                          }));
@@ -198,6 +209,7 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
         $configRepository->expects($this->any())
                          ->method('set')
                          ->withConsecutive(
+                             [$this->equalTo('apache.host'), $this->equalTo('apache')],
                              [$this->equalTo('apache.document-root'), $this->equalTo($documentRoot)],
                              [$this->equalTo('apache.log-dir'), $this->equalTo($logDir)]
                          )
@@ -231,7 +243,10 @@ class ApacheTest extends \PHPUnit_Framework_TestCase
 
         $configRepository->expects($this->any())
                          ->method('set')
-                         ->with($this->equalTo('apache.server-admin'), $this->equalTo($serverAdmin))
+                         ->withConsecutive(
+                             [$this->equalTo('apache.host'), $this->equalTo('apache')],
+                             [$this->equalTo('apache.server-admin'), $this->equalTo($serverAdmin)]
+                         )
                          ->will($this->returnCallback(function ($key, $value) use (&$configurations
                          ) {
                              $configurations[$key] = $value;

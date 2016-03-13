@@ -1,191 +1,208 @@
 <?php
 namespace Marvin\Commands;
 
-use Marvin\Commands\CreateApacheCommand;
+use Marvin\Config\Repository;
+use Marvin\Filesystem\Filesystem;
+use Marvin\Filesystem\Template;
+use Marvin\Hosts\ApacheManager;
+use Marvin\Hosts\EtcHostsManager;
+use Marvin\Shell\Apache\Execute;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 
 class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
 {
-    /**
-     * @var Application
-     */
-    protected $application;
+    protected $container;
+
+    public static function setUpBeforeClass()
+    {
+        $ds   = DIRECTORY_SEPARATOR;
+        $base = dirname(__DIR__);
+        $base .= $ds . 'mocksystem' . $ds;
+
+        $path = $base . 'app' . $ds . 'tmp';
+        mkdir($path, 0777, true);
+
+        $path = $base . 'root' . $ds . 'etc' . $ds . 'apache2' . $ds . 'sites-available';
+        mkdir($path, 0777, true);
+
+        $path = $base . 'root' . $ds . 'etc' . $ds . 'apache2' . $ds . 'sites-enables';
+        mkdir($path, 0777, true);
+
+        $path = $base . 'root' . $ds . 'etc' . $ds . 'hosts';
+
+        $hostContent = <<<CONT
+127.0.0.1   localhost
+127.0.1.1   Desktop
+192.168.50.4    www.dev
+192.168.50.4    local.app.dev
+CONT;
+
+        file_put_contents($path, $hostContent);
+    }
+
+    public static function tearDownAfterClass()
+    {
+        $ds   = DIRECTORY_SEPARATOR;
+        $base = dirname(__DIR__);
+        $base .= $ds . 'mocksystem' . $ds;
+
+        self::deleteFiles($base);
+    }
+
+    protected static function deleteFiles($target)
+    {
+        if (is_dir($target)) {
+            $files = glob($target . '*', GLOB_MARK);
+
+            foreach ($files as $file) {
+                self::deleteFiles($file);
+            }
+
+            rmdir($target);
+        } elseif (is_file($target)) {
+            unlink($target);
+        }
+    }
 
     protected function setUp()
     {
-        $apacheManager = $this->getMockBuilder('Marvin\Hosts\Apache')
-                              ->disableOriginalConstructor()
-                              ->setMethods([
-                                  'create',
-                              ])
-                              ->getMock();
+        $container['ConfigRepository'] = $this->getConfigRepository();
+        $container['Filesystem']       = new Filesystem();
+        $container['Template']         = new Template($container['ConfigRepository'], $container['Filesystem']);
+        $container['ApacheManager']    = new ApacheManager($container['ConfigRepository'], $container['Template']);
+        $container['EtcHostsManager']  = new EtcHostsManager($container['Filesystem'], $container['ConfigRepository']);
+        $container['Execute'] = new Execute($container['ConfigRepository']);
 
-        $apacheManager->expects($this->any())
-                      ->method('create');
-
-        $this->application = new Application();
-        $this->application->add(new CreateApacheCommand($apacheManager));
+        $this->container = $container;
     }
 
-    /**
-     * @runInSeparateProcess
-     */
-    public function testPrintMessageIfIpIsInvalid()
+    protected function getConfigRepository()
     {
-        $ip = '111';
+        $ds                 = DIRECTORY_SEPARATOR;
+        $base               = dirname(dirname(__DIR__)) . $ds . 'app';
+        $items['apache']    = include $base . $ds . 'config' . $ds . 'apache.conf.php';
+        $items['app']       = include $base . $ds . 'config' . $ds . 'app.conf.php';
+        $items['default']   = include $base . $ds . 'config' . $ds . 'default.conf.php';
+        $items['hostsfile'] = include $base . $ds . 'config' . $ds . 'hostsfile.conf.php';
 
-        $apacheManager = $this->getMockBuilder('Marvin\Hosts\Apache')
-                              ->disableOriginalConstructor()
-                              ->setMethods([
-                                  'set',
-                              ])
-                              ->getMock();
+        $testDir     = dirname(__DIR__) . $ds . 'mocksystem';
+        $testDirRoot = $testDir . $ds . 'root';
 
-        $apacheManager->expects($this->any())
-                      ->method('set')
-                      ->will($this->onConsecutiveCalls(
-                          $this->returnSelf(), // Return in line 81
-                          $this->returnSelf(), // Return in line 82
-                          $this->returnCallback(function ($key, $ip) {
-                              if ('ip' === $key && filter_var($ip, FILTER_VALIDATE_IP) === false) {
-                                  throw new \InvalidArgumentException('This is a not valid IP');
-                              }
-                          })
-                      ));
+        $items['hostsfile']['dir']  = $testDirRoot . $ds . 'etc';
+        $items['hostsfile']['path'] = $testDirRoot . $ds . 'etc' . $ds . 'hosts';
 
-        $application = new Application();
-        $application->add(new CreateApacheCommand($apacheManager));
+        $items['apache']['config-sys-dir'] = $testDirRoot . $ds . 'etc' . $ds . 'apache2';
+
+        $items['app']['temporary-dir'] = $testDir . $ds . 'app' . $ds . 'tmp';
+
+        $configRepository = new Repository($items);
+
+        return $configRepository;
+    }
+
+    public function testSetArgumentsAndOptionsCorrectly()
+    {
+        $application  = new Application();
+        $createApache = new CreateApacheCommand($this->container);
+        $application->add($createApache);
 
         $command       = $application->find('create:apache');
         $commandTester = new CommandTester($command);
 
+        $arguments = [
+            'server-name'   => 'marvin.dev',
+            'document-root' => '/home/marvin/app',
+        ];
 
-        $commandTester->execute([
-            'command'       => $command->getName(),
-            'name'          => 'marvin.localhost',
-            'document-root' => '/home/trillian/marvin/app',
-            '--ip'          => $ip,
-        ]);
+        $options = [
+            'ip'           => '192.50.50.40',
+            'port'         => '80',
+            'server-admin' => 'marvin@webmaster',
+            'alias'        => 'marvin.local',
+            'log-dir'      => '/home/marvin/app/logs',
+        ];
 
-        $this->assertRegExp('/This is a not valid IP/', $commandTester->getDisplay());
+        $parameters                   = $arguments;
+        $parameters['command']        = $command->getName();
+        $parameters['--ip']           = $options['ip'];
+        $parameters['--port']         = $options['port'];
+        $parameters['--server-admin'] = $options['server-admin'];
+        $parameters['--alias']        = $options['alias'];
+        $parameters['--log-dir']      = $options['log-dir'];
 
+        $commandTester->execute($parameters);
+
+        $inpArguments = $commandTester->getInput()->getArguments();
+        $inpOptions   = $commandTester->getInput()->getOptions();
+
+        // Assert Arguments
+        $this->assertEquals($arguments['server-name'], $inpArguments['server-name']);
+        $this->assertEquals($arguments['document-root'], $inpArguments['document-root']);
+
+        // Assert Options
+        $this->assertEquals($options['ip'], $inpOptions['ip']);
+        $this->assertEquals($options['port'], $inpOptions['port']);
+        $this->assertEquals($options['server-admin'], $inpOptions['server-admin']);
+        $this->assertEquals($options['alias'], $inpOptions['alias']);
+        $this->assertEquals($options['log-dir'], $inpOptions['log-dir']);
     }
 
-    public function testCommandSetOptionsRightly()
+    public function testPrintMessageIfIPIsInvalid()
     {
-        $command       = $this->application->find('create:apache');
-        $commandTester = new CommandTester($command);
-
-        $serverName   = 'marvin.localhost';
-        $documentRoot = '/home/marvin/site/public';
-        $serverAdmin  = 'marvin@mailhost';
-        $ip           = '192.168.4.2';
-        $port         = '8080';
-        $logPath      = '/home/marvin/log';
-        $serverAlias  = 'marvin.app';
-
-        $commandTester->execute([
-            'command'        => $command->getName(),
-            'name'           => $serverName,
-            'document-root'  => $documentRoot,
-            '--server-admin' => $serverAdmin,
-            '--ip'           => $ip,
-            '--port'         => $port,
-            '--log-path'     => $logPath,
-            '--server-alias' => $serverAlias,
-        ]);
-
-        $this->assertEquals($serverName, $commandTester->getInput()->getArgument('name'));
-        $this->assertEquals($documentRoot, $commandTester->getInput()->getArgument('document-root'));
-        $this->assertEquals($serverAdmin, $commandTester->getInput()->getOption('server-admin'));
-        $this->assertEquals($ip, $commandTester->getInput()->getOption('ip'));
-        $this->assertEquals($port, $commandTester->getInput()->getOption('port'));
-        $this->assertEquals($logPath, $commandTester->getInput()->getOption('log-path'));
-        $this->assertContains($serverAlias, $commandTester->getInput()->getOption('server-alias'));
-    }
-
-    public function testCommandSetOptionsRightlyUsingShortcuts()
-    {
-        $command       = $this->application->find('create:apache');
-        $commandTester = new CommandTester($command);
-
-        $serverName   = 'marvin.localhost';
-        $documentRoot = '/home/marvin/site/public';
-        $serverAdmin  = 'marvin@mailhost';
-        $ip           = '192.168.4.2';
-        $port         = '8080';
-        $logPath      = '/home/marvin/log';
-        $serverAlias  = 'marvin.app';
-
-        $commandTester->execute([
-            'command'       => $command->getName(),
-            'name'          => $serverName,
-            'document-root' => $documentRoot,
-            '-a'            => $serverAdmin,
-            '-i'            => $ip,
-            '-p'            => $port,
-            '-l'            => $logPath,
-            '-A'            => $serverAlias,
-        ]);
-
-        $this->assertEquals($serverAdmin, $commandTester->getInput()->getOption('server-admin'));
-        $this->assertEquals($ip, $commandTester->getInput()->getOption('ip'));
-        $this->assertEquals($port, $commandTester->getInput()->getOption('port'));
-        $this->assertEquals($logPath, $commandTester->getInput()->getOption('log-path'));
-        $this->assertContains($serverAlias, $commandTester->getInput()->getOption('server-alias'));
-    }
-
-    public function testShouldCreateApacheVirtualHost()
-    {
-        $apacheManager = $this->getMockBuilder('Marvin\Hosts\Apache')
-                              ->disableOriginalConstructor()
-                              ->setMethods([
-                                  'set',
-                                  'create'
-                              ])
-                              ->getMock();
-
-
-        $serverName   = 'marvin.localhost';
-        $documentRoot = '/home/marvin/site/public';
-        $serverAdmin  = 'marvin@mailhost';
-        $ip           = '192.168.4.2';
-        $port         = '8080';
-        $logPath      = '/home/marvin/log';
-        $serverAlias  = 'marvin.app';
-
-        /**
-         * Methods to call in /Marvin/Hosts/Apache
-         */
-        $apacheManager->expects($this->any())
-                      ->method('set')
-                      ->will($this->returnSelf());
-
-        $apacheManager->expects($this->once())
-                      ->method('create');
-
-        /**
-         * Execute commands
-         */
-        $application = new Application();
-        $application->add(new CreateApacheCommand($apacheManager));
+        $application  = new Application();
+        $createApache = new CreateApacheCommand($this->container);
+        $application->add($createApache);
 
         $command       = $application->find('create:apache');
         $commandTester = new CommandTester($command);
 
-        $commandTester->execute([
-            'command'        => $command->getName(),
-            'name'           => $serverName,
-            'document-root'  => $documentRoot,
-            '--server-admin' => $serverAdmin,
-            '--server-alias' => $serverAlias,
-            '--ip'           => $ip,
-            '--port'         => $port,
-            '--log-path'     => $logPath,
-        ]);
+        $arguments = [
+            'server-name'   => 'marvin.dev',
+            'document-root' => '/home/marvin/app',
+        ];
 
-        $this->assertRegExp('/Apache Virtual Host Created Success!/', $commandTester->getDisplay());
+        $options = [
+            'ip' => '4.2.90',
+        ];
+
+        $parameters            = $arguments;
+        $parameters['command'] = $command->getName();
+        $parameters['--ip']    = $options['ip'];
+
+        $commandTester->execute($parameters);
+
+        $this->assertRegExp('/Use a valid IP/', $commandTester->getDisplay());
+    }
+
+    public function testShouldCreateConfigurationsFilesAndEnableNewHost()
+    {
+        $this->container['Execute'] = $this->getMockBuilder('Marvin\Contracts\Execute')
+                                           ->setMethods([])
+                                           ->getMock();
+
+        $application  = new Application();
+        $createApache = new CreateApacheCommand($this->container);
+        $application->add($createApache);
+
+        $command       = $application->find('create:apache');
+        $commandTester = new CommandTester($command);
+
+        $arguments            = [
+            'server-name'   => 'marvin.dev',
+            'document-root' => '/home/marvin/app',
+        ];
+        $arguments['command'] = $command->getName();
+
+        $commandTester->execute($arguments);
+
+        $ds           = DIRECTORY_SEPARATOR;
+        $base         = dirname(__DIR__) . $ds . 'mocksystem' . $ds . 'app' . $ds . 'tmp';
+        $hostFilePath = $base . $ds  . 'hosts';
+        $apachePath   = $base . $ds . 'marvin.dev.conf';
+
+        $this->assertFileExists($hostFilePath);
+        $this->assertFileExists($apachePath);
     }
 
 }

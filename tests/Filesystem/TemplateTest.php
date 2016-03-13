@@ -41,7 +41,7 @@ class TemplateTest extends \PHPUnit_Framework_TestCase
 
         $configurations = [
             'app'      => [
-                'template-dir'  => '/app/templates',
+                'templates-dir'  => '/app/templates',
                 'temporary-dir' => 'app/temp',
             ],
             'apache'   => [
@@ -121,7 +121,7 @@ TEMPLATE;
 HOSTCONF;
 
 
-        $templateApacheFile = $configurations['app']['template-dir'] . DIRECTORY_SEPARATOR . 'apache.stub';
+        $templateApacheFile = $configurations['app']['templates-dir'] . DIRECTORY_SEPARATOR . 'apache.stub';
         $fileName           = $configurations['apache']['file-name'];
         $compiledFileDest   = $configurations['app']['temporary-dir'] . DIRECTORY_SEPARATOR . $fileName;
 
@@ -131,8 +131,8 @@ HOSTCONF;
 
         $filesystem->expects($this->once())
                    ->method('files')
-                   ->with($this->equalTo($configurations['app']['template-dir']))
-                   ->will($this->returnValue(['apache.stub', 'ngnix.stub']));
+                   ->with($this->equalTo($configurations['app']['templates-dir']))
+                   ->will($this->returnValue([$templateApacheFile, 'ngnix.stub']));
 
         $filesystem->expects($this->once())
                    ->method('get')
@@ -160,7 +160,7 @@ HOSTCONF;
     {
         $configurations = [
             'app'      => [
-                'template-dir'  => '/app/templates',
+                'templates-dir'  => '/app/templates',
                 'temporary-dir' => 'app/temp',
             ],
             'apache'   => [
@@ -182,8 +182,8 @@ HOSTCONF;
 
         $configRepository->expects($this->any())
                          ->method('get')
-                         ->with($this->equalTo('app.template-dir'))
-                         ->will($this->returnValue($configurations['app']['template-dir']));
+                         ->with($this->equalTo('app.templates-dir'))
+                         ->will($this->returnValue($configurations['app']['templates-dir']));
 
 
         // VHostManager setups
@@ -209,7 +209,7 @@ HOSTCONF;
 
         // Filesystem\Template setups
 
-        $templateApacheFile = $configurations['app']['template-dir'] . DIRECTORY_SEPARATOR . 'apache.stub';
+        $templateApacheFile = $configurations['app']['templates-dir'] . DIRECTORY_SEPARATOR . 'apache.stub';
         $templateContent    = 'They are a simple {{tag}} and a {{fake-tag}}';
 
 
@@ -219,8 +219,8 @@ HOSTCONF;
 
         $filesystem->expects($this->once())
                    ->method('files')
-                   ->with($this->equalTo($configurations['app']['template-dir']))
-                   ->will($this->returnValue(['apache.stub', 'ngnix.stub']));
+                   ->with($this->equalTo($configurations['app']['templates-dir']))
+                   ->will($this->returnValue([$templateApacheFile, 'ngnix.stub']));
 
         $filesystem->expects($this->once())
                    ->method('get')

@@ -1,7 +1,6 @@
 <?php
 namespace Marvin\Commands;
 
-use Marvin\Hosts\Apache;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -10,188 +9,169 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class CreateApacheCommand extends Command
 {
-    /**
-     * @var Apache
-     */
-    protected $apacheManager;
+
+    protected $container;
 
     /**
      * CreateApacheCommand constructor.
      *
-     * @param Apache $apacheManager
-     * @param null   $name
+     * @param array       $container
+     * @param null|string $name
      */
-    public function __construct(Apache $apacheManager, $name = null)
+    public function __construct(array $container, $name = null)
     {
         parent::__construct($name);
-
-        $this->apacheManager = $apacheManager;
+        $this->container = $container;
     }
 
+
     /**
-     * Configures the current command.
+     * Configure command options
      */
     protected function configure()
     {
         $this->setName('create:apache')
-             ->setDescription('This command is used to create virtual host Apache')
+             ->setDescription('This command create a Apache virtual host')
              ->addArgument(
-                 'name',
+                 'server-name',
                  InputArgument::REQUIRED,
-                 'Host name used to access'
+                 'Your server'
              )
              ->addArgument(
                  'document-root',
                  InputArgument::REQUIRED,
-                 'Path for the directory containing visible document in web'
+                 'Path to you document root'
              )
              ->addOption(
                  'ip',
-                 'i',
+                 null,
                  InputOption::VALUE_REQUIRED,
-                 'IP to access virtual host'
+                 'Ip used to access your virtual host'
              )
              ->addOption(
                  'port',
                  'p',
                  InputOption::VALUE_REQUIRED,
-                 'Port to access virtual host'
-             )
-             ->addOption(
-                 'log-path',
-                 'l',
-                 InputOption::VALUE_REQUIRED,
-                 'Path to server logs'
+                 'Port used to access your virtual host'
              )
              ->addOption(
                  'server-admin',
-                 'a',
+                 'sa',
                  InputOption::VALUE_REQUIRED,
-                 'Admin e-mail address'
+                 'Email address that the server includes in error messages'
              )
              ->addOption(
-                 'server-alias',
-                 'A',
+                 'alias',
+                 'al',
                  InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
-                 'Alternate name for the host'
+                 'Alternate names for a host'
+             )
+             ->addOption(
+                 'log-dir',
+                 'ld',
+                 InputOption::VALUE_REQUIRED,
+                 'Location where the server will log errors'
+
              );
     }
 
     /**
-     * Executes the current command.
+     * @param InputInterface  $input
+     * @param OutputInterface $output
+     */
+    protected function initialize(InputInterface $input, OutputInterface $output)
+    {
+
+    }
+
+
+    /**
+     * @param InputInterface  $input
+     * @param OutputInterface $output
+     */
+    protected function interact(InputInterface $input, OutputInterface $output)
+    {
+        $this->setParameters($input, $output);
+    }
+
+    /**
+     * @param InputInterface  $input
+     * @param OutputInterface $output
      *
-     * @param InputInterface  $input  An InputInterface instance
-     * @param OutputInterface $output An OutputInterface instance
-     *
-     * @return null|int null or 0 if everything went fine, or an error code
+     * @return void
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $name         = $input->getArgument('name');
-        $documentRoot = $input->getArgument('document-root');
-        $ip           = $input->getOption('ip');
-        $port         = $input->getOption('port');
-        $logPath      = $input->getOption('log-path');
-        $serverAdmin  = $input->getOption('server-admin');
-        $serverAlias  = $input->getOption('server-alias');
+        if ($this->container['ApacheManager']->create()) {
+            $output->writeln('The configurations file of the virtual host created');
+        }
 
-        $this->apacheManager->set('server-name', $name)
-                            ->set('document-root', $documentRoot);
+        if ($this->container['EtcHostsManager']->addHost($this->container['ApacheManager'])) {
+            $output->writeln('The new hosts file created');
+        }
 
-        $this->setIp($ip, $output)
-             ->setPort($port)
-             ->setLogPath($logPath)
-             ->setServerAlias($serverAlias)
-             ->setServerAdmin($serverAdmin);
+        $tmpDir = $this->container['ConfigRepository']->get('app.temporary-dir');
 
-        $this->apacheManager->create($name);
-        $output->writeln('Apache Virtual Host Created Success!');
+        $hostsFile = $tmpDir . DIRECTORY_SEPARATOR . 'hosts';
+
+        if ($this->container['Filesystem']->exists($hostsFile)) {
+            $target = $this->container['ConfigRepository']->get('hostsfile.path');
+            $this->container['Filesystem']->sysMove($hostsFile, $target);
+        }
+
+        $apacheFile = $tmpDir . DIRECTORY_SEPARATOR . $this->container['ApacheManager']->get('file-name');
+
+        if ($this->container['Filesystem']->exists($apacheFile)) {
+            $target = $this->container['ConfigRepository']->get('apache.config-sys-dir');
+            $this->container['Filesystem']->sysMove($apacheFile, $target);
+        }
+
+        $execute = $this->container['ApacheManager']->execute($this->container['Execute']);
+        $execute->enable();
+        $execute->restart();
+
+        $output->writeln('The new host is finished');
+
     }
 
-    /**
-     * Set IP or print message if is invalid
-     *
-     * @param string $ip
-     * @param $output
-     *
-     * @return $this
-     */
-    protected function setIp($ip, $output)
+    protected function setParameters(InputInterface $input, OutputInterface $output)
     {
-        if ($ip) {
-            try {
-                $this->apacheManager->set('ip', $ip);
-            } catch (\InvalidArgumentException $e) {
-                $output->writeln($e->getMessage());
-                exit();
+        $this->container['ApacheManager']->setServerName($input->getArgument('server-name'));
+        $this->container['ApacheManager']->setDocumentRoot($input->getArgument('document-root'));
+        $this->container['ApacheManager']->setFileName($input->getArgument('server-name'));
+
+        if ($input->getOption('ip')) {
+            $this->setIP($input->getOption('ip'), $output);
+        }
+
+        if ($input->getOption('port')) {
+            $this->container['ApacheManager']->setPort($input->getOption('port'));
+        }
+
+        if ($input->getOption('server-admin')) {
+            $this->container['ApacheManager']->setServerAdmin($input->getOption('server-admin'));
+        }
+
+        $alias = $input->getOption('alias');
+        if ($input->getOption('alias')) {
+            if ( ! is_array($alias)) {
+                $alias = explode(' ', $alias);
             }
+            $this->container['ApacheManager']->setServerAlias($alias);
         }
 
-        return $this;
+        if ($input->getOption('log-dir')) {
+            $this->container['ApacheManager']->setLogDir($input->getOption('log-dir'));
+        }
+
     }
 
-    /**
-     * Set server port
-     *
-     * @param $port
-     *
-     * @return $this
-     */
-    protected function setPort($port)
+    protected function setIP($ip, OutputInterface $output)
     {
-        if ($port) {
-            $this->apacheManager->set('port', $port);
+        try {
+            $this->container['ApacheManager']->setIP($ip);
+        } catch (\Exception $e) {
+            $output->writeln('Use a valid IP');
         }
-
-        return $this;
-    }
-
-    /**
-     * Set server alias
-     *
-     * @param $serverAlias
-     *
-     * @return $this
-     */
-    protected function setServerAlias($serverAlias)
-    {
-        if ( ! is_array($serverAlias)) {
-            $serverAlias = [$serverAlias];
-        }
-        $this->apacheManager->set('server-alias', $serverAlias);
-
-        return $this;
-    }
-
-    /**
-     * Set log path
-     *
-     * @param $logPath
-     *
-     * @return $this
-     */
-    protected function setLogPath($logPath)
-    {
-        if ($logPath) {
-            $this->apacheManager->set('log-path', $logPath);
-        }
-
-        return $this;
-    }
-
-    /**
-     * Set server admin e-mail
-     *
-     * @param $serverAdmin
-     *
-     * @return $this
-     */
-    protected function setServerAdmin($serverAdmin)
-    {
-        if ($serverAdmin) {
-            $this->apacheManager->set('server-admin', $serverAdmin);
-        }
-
-        return $this;
     }
 }
