@@ -130,12 +130,12 @@ class RepositoryTest extends \PHPUnit_Framework_TestCase
         $configRepository['app.describe'] = 'Manager Virtual Hosts';
         $configRepository['config'] = 'New Configurations';
 
-        $configRepository->set('app.name', 'Marvin');
-        $configRepository->set('app.describe', 'Manager Virtual Hosts');
-        $configRepository->set('config', 'New Configurations');
-
         $this->assertInstanceOf('ArrayAccess', $configRepository);
         $this->assertEquals($expected, $configRepository->all());
+        $this->assertEquals('Marvin', $configRepository['app.name']);
+        $this->assertArrayNotHasKey('false-key', $configRepository);
+        unset($configRepository['config']);
+        $this->assertNull($configRepository['config']);
     }
 
 }

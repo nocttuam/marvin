@@ -37,7 +37,7 @@ class Repository implements ArrayAccess
             return false;
         }
 
-        if (array_key_exists($key, $array)) {
+        if ($this->exists($array, $key)) {
             return true;
         }
 
@@ -66,12 +66,12 @@ class Repository implements ArrayAccess
     {
         $array = $this->items;
 
-        if (isset($array[$key])) {
+        if ($this->exists($array, $key)) {
             return $this->items[$key];
         }
 
         foreach (explode('.', $key) as $segment) {
-            if (array_key_exists($segment, $array)) {
+            if ($this->exists($array, $segment)) {
                 $array = $array[$segment];
             } elseif ( ! is_null($default)) {
                 return $default;
@@ -79,6 +79,15 @@ class Repository implements ArrayAccess
         }
 
         return $array;
+    }
+
+    public function exists($array, $key)
+    {
+        if ($array instanceof ArrayAccess) {
+            return $array->offsetExists($key);
+        }
+
+        return array_key_exists($key, $array);
     }
 
     /**
@@ -102,12 +111,13 @@ class Repository implements ArrayAccess
 
         while (count($keys) > 1) {
             $key = array_shift($keys);
-            if (! isset($array[$key]) || ! is_array($array[$key])) {
+            if ( ! isset($array[$key]) || ! is_array($array[$key])) {
                 $array[$key] = [];
             }
             $array = &$array[$key];
         }
         $array[array_shift($keys)] = $value;
+
         return $array;
     }
 
@@ -128,7 +138,7 @@ class Repository implements ArrayAccess
      */
     public function offsetExists($key)
     {
-        $this->has($key);
+        return $this->has($key);
     }
 
     /**
@@ -138,7 +148,7 @@ class Repository implements ArrayAccess
      */
     public function offsetGet($key)
     {
-        $this->get($key);
+        return $this->get($key);
     }
 
     /**
