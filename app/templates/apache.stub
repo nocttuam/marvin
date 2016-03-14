@@ -4,8 +4,8 @@
 {!! ServerAlias {{alias}}!!}
     DocumentRoot {{document-root}}
 
-    ErrorLog {{log-dir}}{{server-name}}-error.log
-    CustomLog {{log-dir}}{{server-name}}-access.log combined
+    ErrorLog {{log-dir}}/{{server-name}}-error.log
+    CustomLog {{log-dir}}/{{server-name}}-access.log combined
 
     <Directory {{document-root}}>
         Options Indexes FollowSymLinks MultiViews
