@@ -1,6 +1,6 @@
 {
-  "name": "noctuam/marvin",
-  "description": "The virtual host manager",
+  "name": "m2rvin/marvin",
+  "description": "The smart and simple virtual host manager",
   "keywords": [
     "cli",
     "virtual-host",
