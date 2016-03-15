@@ -122,7 +122,7 @@ class CreateApacheCommand extends Command
         $apacheFile = $tmpDir . DIRECTORY_SEPARATOR . $this->container['ApacheManager']->get('file-name');
 
         if ($this->container['Filesystem']->exists($apacheFile)) {
-            $target = $this->container['ConfigRepository']->get('apache.config-sys-dir') .DIRECTORY_SEPARATOR . 'sites-available';
+            $target = $this->container['ConfigRepository']->get('apache.config-sys-dir') . DIRECTORY_SEPARATOR . 'sites-available';
             $this->container['Filesystem']->sysMove($apacheFile, $target);
         }
 
