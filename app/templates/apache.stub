@@ -1,7 +1,7 @@
 <VirtualHost {{ip}}:{{port}}>
     ServerName {{server-name}}
 {!! ServerAdmin {{server-admin}}!!}
-{!! ServerAlias {{alias}}!!}
+{!! ServerAlias {{server-alias}}!!}
     DocumentRoot {{document-root}}
 
     ErrorLog {{log-dir}}/{{server-name}}-error.log
