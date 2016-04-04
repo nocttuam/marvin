@@ -30,7 +30,7 @@ class CreateApacheCommand extends Command
      */
     protected function configure()
     {
-        $this->setName('create:apache')
+        $this->setName('apache:create')
              ->setDescription('This command create a Apache virtual host')
              ->addArgument(
                  'server-name',
@@ -44,7 +44,7 @@ class CreateApacheCommand extends Command
              )
              ->addOption(
                  'ip',
-                 null,
+                 'i',
                  InputOption::VALUE_REQUIRED,
                  'Ip used to access your virtual host'
              )
@@ -56,19 +56,19 @@ class CreateApacheCommand extends Command
              )
              ->addOption(
                  'server-admin',
-                 'sa',
+                 null,
                  InputOption::VALUE_REQUIRED,
                  'Email address that the server includes in error messages'
              )
              ->addOption(
                  'alias',
-                 'al',
+                 null,
                  InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
                  'Alternate names for a host'
              )
              ->addOption(
                  'log-dir',
-                 'ld',
+                 null,
                  InputOption::VALUE_REQUIRED,
                  'Location where the server will log errors'
 

@@ -107,7 +107,7 @@ CONT;
         $createApache = new CreateApacheCommand($this->container);
         $application->add($createApache);
 
-        $command       = $application->find('create:apache');
+        $command       = $application->find('apache:create');
         $commandTester = new CommandTester($command);
 
         $arguments = [
@@ -154,7 +154,7 @@ CONT;
         $createApache = new CreateApacheCommand($this->container);
         $application->add($createApache);
 
-        $command       = $application->find('create:apache');
+        $command       = $application->find('apache:create');
         $commandTester = new CommandTester($command);
 
         $arguments = [
@@ -185,7 +185,7 @@ CONT;
         $createApache = new CreateApacheCommand($this->container);
         $application->add($createApache);
 
-        $command       = $application->find('create:apache');
+        $command       = $application->find('apache:create');
         $commandTester = new CommandTester($command);
 
         $arguments            = [
