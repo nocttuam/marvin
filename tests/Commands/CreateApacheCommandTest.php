@@ -7,6 +7,7 @@ use Marvin\Filesystem\Template;
 use Marvin\Hosts\ApacheManager;
 use Marvin\Hosts\EtcHostsManager;
 use Marvin\Shell\Apache\Execute;
+use org\bovigo\vfs\vfsStream;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -14,41 +15,10 @@ class CreateApacheCommandTest extends \PHPUnit_Framework_TestCase
 {
     protected $container;
 
-    public static function setUpBeforeClass()
-    {
-        $ds   = DIRECTORY_SEPARATOR;
-        $base = dirname(__DIR__);
-        $base .= $ds . 'mocksystem' . $ds;
-
-        $path = $base . 'app' . $ds . 'tmp';
-        mkdir($path, 0777, true);
-
-        $path = $base . 'root' . $ds . 'etc' . $ds . 'apache2' . $ds . 'sites-available';
-        mkdir($path, 0777, true);
-
-        $path = $base . 'root' . $ds . 'etc' . $ds . 'apache2' . $ds . 'sites-enables';
-        mkdir($path, 0777, true);
-
-        $path = $base . 'root' . $ds . 'etc' . $ds . 'hosts';
-
-        $hostContent = <<<CONT
-127.0.0.1   localhost
-127.0.1.1   Desktop
-192.168.50.4    www.dev
-192.168.50.4    local.app.dev
-CONT;
-
-        file_put_contents($path, $hostContent);
-    }
-
-    public static function tearDownAfterClass()
-    {
-        $ds   = DIRECTORY_SEPARATOR;
-        $base = dirname(__DIR__);
-        $base .= $ds . 'mocksystem' . $ds;
-
-        self::deleteFiles($base);
-    }
+    /**
+     * @var \org\bovigo\vfs\vfsStreamDirectory
+     */
+    protected $root;
 
     protected static function deleteFiles($target)
     {
@@ -67,6 +37,7 @@ CONT;
 
     protected function setUp()
     {
+        $this->setFilesystemMock();
         $container['ConfigRepository'] = $this->getConfigRepository();
         $container['Filesystem']       = new Filesystem();
         $container['Template']         = new Template($container['ConfigRepository'], $container['Filesystem']);
@@ -77,6 +48,35 @@ CONT;
         $this->container = $container;
     }
 
+    protected function setFilesystemMock()
+    {
+        $etcContent = <<<CONT
+127.0.0.1   localhost
+127.0.1.1   Desktop
+192.168.50.4    www.dev
+192.168.50.4    local.app.dev
+CONT;
+        $structure = [
+            'marvin' => [
+                'tmp' => []
+            ],
+            'etc' => [
+                'apache2' => [
+                    'sites-available' => [],
+                    'sites-enables' => []
+                ],
+                'hosts' => $etcContent
+            ]
+
+        ];
+
+        $this->root = vfsStream::setup('root', null, $structure);
+    }
+
+
+    /**
+     * @return Repository
+     */
     protected function getConfigRepository()
     {
         $ds                 = DIRECTORY_SEPARATOR;
@@ -86,15 +86,12 @@ CONT;
         $items['default']   = include $base . $ds . 'config' . $ds . 'default.conf.php';
         $items['hostsfile'] = include $base . $ds . 'config' . $ds . 'hostsfile.conf.php';
 
-        $testDir     = dirname(__DIR__) . $ds . 'mocksystem';
-        $testDirRoot = $testDir . $ds . 'root';
 
-        $items['hostsfile']['dir']  = $testDirRoot . $ds . 'etc';
-        $items['hostsfile']['path'] = $testDirRoot . $ds . 'etc' . $ds . 'hosts';
+        $items['hostsfile']['dir']  = $this->root->getChild('etc')->url();
+        $items['hostsfile']['path'] = $this->root->getChild('etc/hosts')->url();
+        $items['apache']['config-sys-dir'] = $this->root->getChild('etc/apache2')->url();
+        $items['app']['temporary-dir'] = $this->root->getChild('marvin/tmp')->url();
 
-        $items['apache']['config-sys-dir'] = $testDirRoot . $ds . 'etc' . $ds . 'apache2';
-
-        $items['app']['temporary-dir'] = $testDir . $ds . 'app' . $ds . 'tmp';
 
         $configRepository = new Repository($items);
 
@@ -196,13 +193,12 @@ CONT;
 
         $commandTester->execute($arguments);
 
-        $ds           = DIRECTORY_SEPARATOR;
-        $base         = dirname(__DIR__) . $ds . 'mocksystem' . $ds . 'app' . $ds . 'tmp';
-        $hostFilePath = $base . $ds  . 'hosts';
-        $apachePath   = $base . $ds . 'marvin.dev.conf';
 
-        $this->assertFileExists($hostFilePath);
-        $this->assertFileExists($apachePath);
+        $apacheFile  = $this->root->getChild('marvin/tmp/marvin.dev.conf')->url();
+        $hostsFile  = $this->root->getChild('marvin/tmp/hosts')->url();
+
+        $this->assertFileExists($apacheFile);
+        $this->assertFileExists($hostsFile);
     }
 
 }
